@@ -7,10 +7,10 @@
 
 #import <Foundation/Foundation.h>
 #import <NitroModules/HybridObjectRegistry.hpp>
-#import "NitroGkPhotoBrowser-Swift-Cxx-Umbrella.hpp"
+
 #import <type_traits>
 
-#include "HybridGKPhotoBrowserSpecSwift.hpp"
+#include "GKPhotoBrowserImpl.hpp"
 
 @interface NitroGkPhotoBrowserAutolinking : NSObject
 @end
@@ -24,8 +24,10 @@
   HybridObjectRegistry::registerHybridObjectConstructor(
     "GKPhotoBrowser",
     []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridGKPhotoBrowserSpec> hybridObject = NitroGkPhotoBrowser::NitroGkPhotoBrowserAutolinking::createGKPhotoBrowser();
-      return hybridObject;
+      static_assert(std::is_default_constructible_v<GKPhotoBrowserImpl>,
+                    "The HybridObject \"GKPhotoBrowserImpl\" is not default-constructible! "
+                    "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
+      return std::make_shared<GKPhotoBrowserImpl>();
     }
   );
 }

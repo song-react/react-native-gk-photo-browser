@@ -13,16 +13,12 @@ Pod::Spec.new do |s|
   s.source       = { :git => 'https://example.invalid/react-native-gk-photo-browser.git', :tag => s.version.to_s }
 
   s.source_files = [
-    'ios/**/*.swift'
+    'ios/**/*.{h,m,mm}',
+    'cpp/**/*.{h,hpp,c,cpp,mm}'
   ]
 
   load 'nitrogen/generated/ios/NitroGkPhotoBrowser+autolinking.rb'
   add_nitrogen_files(s)
-
-  existing_xcconfig = s.attributes_hash['pod_target_xcconfig'] || {}
-  s.pod_target_xcconfig = existing_xcconfig.merge(
-    'SWIFT_OBJC_INTEROP_MODE' => 'objcxx'
-  )
 
   s.dependency 'GKPhotoBrowser/Cover'
   s.dependency 'GKPhotoBrowser/SD'

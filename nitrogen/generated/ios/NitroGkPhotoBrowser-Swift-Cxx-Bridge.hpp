@@ -8,31 +8,13 @@
 #pragma once
 
 // Forward declarations of C++ defined types
-// Forward declaration of `BrowserImage` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { struct BrowserImage; }
-// Forward declaration of `BrowserMediaType` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { enum class BrowserMediaType; }
-// Forward declaration of `BrowserRect` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { struct BrowserRect; }
-// Forward declaration of `HybridGKPhotoBrowserSpec` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { class HybridGKPhotoBrowserSpec; }
+
 
 // Forward declarations of Swift defined types
-// Forward declaration of `HybridGKPhotoBrowserSpec_cxx` to properly resolve imports.
-namespace NitroGkPhotoBrowser { class HybridGKPhotoBrowserSpec_cxx; }
+
 
 // Include C++ defined types
-#include "BrowserImage.hpp"
-#include "BrowserMediaType.hpp"
-#include "BrowserRect.hpp"
-#include "HybridGKPhotoBrowserSpec.hpp"
-#include <NitroModules/Result.hpp>
-#include <exception>
-#include <functional>
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
+
 
 /**
  * Contains specialized versions of C++ templated types so they can be accessed from Swift,
@@ -40,155 +22,6 @@ namespace NitroGkPhotoBrowser { class HybridGKPhotoBrowserSpec_cxx; }
  */
 namespace margelo::nitro::gkphotobrowser::bridge::swift {
 
-  // pragma MARK: std::optional<BrowserMediaType>
-  /**
-   * Specialized version of `std::optional<BrowserMediaType>`.
-   */
-  using std__optional_BrowserMediaType_ = std::optional<BrowserMediaType>;
-  inline std::optional<BrowserMediaType> create_std__optional_BrowserMediaType_(const BrowserMediaType& value) noexcept {
-    return std::optional<BrowserMediaType>(value);
-  }
-  inline bool has_value_std__optional_BrowserMediaType_(const std::optional<BrowserMediaType>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline BrowserMediaType get_std__optional_BrowserMediaType_(const std::optional<BrowserMediaType>& optional) noexcept {
-    return optional.value();
-  }
   
-  // pragma MARK: std::optional<std::string>
-  /**
-   * Specialized version of `std::optional<std::string>`.
-   */
-  using std__optional_std__string_ = std::optional<std::string>;
-  inline std::optional<std::string> create_std__optional_std__string_(const std::string& value) noexcept {
-    return std::optional<std::string>(value);
-  }
-  inline bool has_value_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::string get_std__optional_std__string_(const std::optional<std::string>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::optional<BrowserRect>
-  /**
-   * Specialized version of `std::optional<BrowserRect>`.
-   */
-  using std__optional_BrowserRect_ = std::optional<BrowserRect>;
-  inline std::optional<BrowserRect> create_std__optional_BrowserRect_(const BrowserRect& value) noexcept {
-    return std::optional<BrowserRect>(value);
-  }
-  inline bool has_value_std__optional_BrowserRect_(const std::optional<BrowserRect>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline BrowserRect get_std__optional_BrowserRect_(const std::optional<BrowserRect>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::optional<bool>
-  /**
-   * Specialized version of `std::optional<bool>`.
-   */
-  using std__optional_bool_ = std::optional<bool>;
-  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
-    return std::optional<bool>(value);
-  }
-  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::vector<BrowserImage>
-  /**
-   * Specialized version of `std::vector<BrowserImage>`.
-   */
-  using std__vector_BrowserImage_ = std::vector<BrowserImage>;
-  inline std::vector<BrowserImage> create_std__vector_BrowserImage_(size_t size) noexcept {
-    std::vector<BrowserImage> vector;
-    vector.reserve(size);
-    return vector;
-  }
-  
-  // pragma MARK: std::optional<double>
-  /**
-   * Specialized version of `std::optional<double>`.
-   */
-  using std__optional_double_ = std::optional<double>;
-  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
-    return std::optional<double>(value);
-  }
-  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::function<void()>
-  /**
-   * Specialized version of `std::function<void()>`.
-   */
-  using Func_void = std::function<void()>;
-  /**
-   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
-   */
-  class Func_void_Wrapper final {
-  public:
-    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
-    inline void call() const noexcept {
-      _function->operator()();
-    }
-  private:
-    std::unique_ptr<std::function<void()>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
-    return Func_void_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::function<void(double /* index */)>
-  /**
-   * Specialized version of `std::function<void(double)>`.
-   */
-  using Func_void_double = std::function<void(double /* index */)>;
-  /**
-   * Wrapper class for a `std::function<void(double / * index * /)>`, this can be used from Swift.
-   */
-  class Func_void_double_Wrapper final {
-  public:
-    explicit Func_void_double_Wrapper(std::function<void(double /* index */)>&& func): _function(std::make_unique<std::function<void(double /* index */)>>(std::move(func))) {}
-    inline void call(double index) const noexcept {
-      _function->operator()(index);
-    }
-  private:
-    std::unique_ptr<std::function<void(double /* index */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_double_Wrapper wrap_Func_void_double(Func_void_double value) noexcept {
-    return Func_void_double_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::shared_ptr<HybridGKPhotoBrowserSpec>
-  /**
-   * Specialized version of `std::shared_ptr<HybridGKPhotoBrowserSpec>`.
-   */
-  using std__shared_ptr_HybridGKPhotoBrowserSpec_ = std::shared_ptr<HybridGKPhotoBrowserSpec>;
-  std::shared_ptr<HybridGKPhotoBrowserSpec> create_std__shared_ptr_HybridGKPhotoBrowserSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
-  void* NON_NULL get_std__shared_ptr_HybridGKPhotoBrowserSpec_(std__shared_ptr_HybridGKPhotoBrowserSpec_ cppType);
-  
-  // pragma MARK: std::weak_ptr<HybridGKPhotoBrowserSpec>
-  using std__weak_ptr_HybridGKPhotoBrowserSpec_ = std::weak_ptr<HybridGKPhotoBrowserSpec>;
-  inline std__weak_ptr_HybridGKPhotoBrowserSpec_ weakify_std__shared_ptr_HybridGKPhotoBrowserSpec_(const std::shared_ptr<HybridGKPhotoBrowserSpec>& strong) noexcept { return strong; }
-  
-  // pragma MARK: Result<void>
-  using Result_void_ = Result<void>;
-  inline Result_void_ create_Result_void_() noexcept {
-    return Result<void>::withValue();
-  }
-  inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
-    return Result<void>::withError(error);
-  }
 
 } // namespace margelo::nitro::gkphotobrowser::bridge::swift

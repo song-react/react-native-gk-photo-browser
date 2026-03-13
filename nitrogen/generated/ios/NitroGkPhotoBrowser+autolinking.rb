@@ -27,9 +27,9 @@ def add_nitrogen_files(spec)
   current_source_files = Array(spec.attributes_hash['source_files'])
   spec.source_files = current_source_files + [
     # Generated cross-platform specs
-    "nitrogen/generated/shared/**/*.{h,hpp,c,cpp,swift}",
+    "nitrogen/generated/shared/**/*.{h,hpp,c,cpp}",
     # Generated bridges for the cross-platform specs
-    "nitrogen/generated/ios/**/*.{h,hpp,c,cpp,mm,swift}",
+    "nitrogen/generated/ios/**/*.{h,hpp,c,cpp,mm}",
   ]
 
   current_public_header_files = Array(spec.attributes_hash['public_header_files'])
@@ -52,8 +52,6 @@ def add_nitrogen_files(spec)
   spec.pod_target_xcconfig = current_pod_target_xcconfig.merge({
     # Use C++ 20
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
-    # Enables C++ <-> Swift interop (by default it's only ObjC)
-    "SWIFT_OBJC_INTEROP_MODE" => "objcxx",
     # Enables stricter modular headers
     "DEFINES_MODULE" => "YES",
   })
