@@ -701,7 +701,7 @@ void GKPhotoBrowserImpl::dismiss() {
   button.backgroundColor = [UIColor colorWithWhite:0.18 alpha:0.64];
   button.layer.cornerRadius = buttonSize * 0.5;
   button.clipsToBounds = YES;
-  UIImageSymbolConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightSemibold];
+  UIImageSymbolConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:16 weight:UIImageSymbolWeightSemibold];
   UIImage *image = [[UIImage systemImageNamed:systemName] imageByApplyingSymbolConfiguration:configuration];
   [button setImage:image forState:UIControlStateNormal];
   return button;
