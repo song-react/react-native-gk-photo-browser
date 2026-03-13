@@ -8,42 +8,10 @@
 #include "NitroGkPhotoBrowser-Swift-Cxx-Bridge.hpp"
 
 // Include C++ implementation defined types
-#include "HybridGKPhotoBrowserSpecSwift.hpp"
-#include "NitroGkPhotoBrowser-Swift-Cxx-Umbrella.hpp"
-#include <NitroModules/NitroDefines.hpp>
+
 
 namespace margelo::nitro::gkphotobrowser::bridge::swift {
 
-  // pragma MARK: std::function<void()>
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = NitroGkPhotoBrowser::Func_void::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
-      swiftClosure.call();
-    };
-  }
   
-  // pragma MARK: std::function<void(double /* index */)>
-  Func_void_double create_Func_void_double(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = NitroGkPhotoBrowser::Func_void_double::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](double index) mutable -> void {
-      swiftClosure.call(index);
-    };
-  }
-  
-  // pragma MARK: std::shared_ptr<HybridGKPhotoBrowserSpec>
-  std::shared_ptr<HybridGKPhotoBrowserSpec> create_std__shared_ptr_HybridGKPhotoBrowserSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
-    NitroGkPhotoBrowser::HybridGKPhotoBrowserSpec_cxx swiftPart = NitroGkPhotoBrowser::HybridGKPhotoBrowserSpec_cxx::fromUnsafe(swiftUnsafePointer);
-    return std::make_shared<margelo::nitro::gkphotobrowser::HybridGKPhotoBrowserSpecSwift>(swiftPart);
-  }
-  void* NON_NULL get_std__shared_ptr_HybridGKPhotoBrowserSpec_(std__shared_ptr_HybridGKPhotoBrowserSpec_ cppType) {
-    std::shared_ptr<margelo::nitro::gkphotobrowser::HybridGKPhotoBrowserSpecSwift> swiftWrapper = std::dynamic_pointer_cast<margelo::nitro::gkphotobrowser::HybridGKPhotoBrowserSpecSwift>(cppType);
-    #ifdef NITRO_DEBUG
-    if (swiftWrapper == nullptr) [[unlikely]] {
-      throw std::runtime_error("Class \"HybridGKPhotoBrowserSpec\" is not implemented in Swift!");
-    }
-    #endif
-    NitroGkPhotoBrowser::HybridGKPhotoBrowserSpec_cxx& swiftPart = swiftWrapper->getSwiftPart();
-    return swiftPart.toUnsafe();
-  }
 
 } // namespace margelo::nitro::gkphotobrowser::bridge::swift

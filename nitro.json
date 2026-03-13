@@ -14,7 +14,7 @@
   },
   "autolinking": {
     "GKPhotoBrowser": {
-      "swift": "GKPhotoBrowserImpl"
+      "cpp": "GKPhotoBrowserImpl"
     }
   },
   "ignorePaths": [

@@ -8,30 +8,10 @@
 #pragma once
 
 // Forward declarations of C++ defined types
-// Forward declaration of `BrowserConfig` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { struct BrowserConfig; }
-// Forward declaration of `BrowserImage` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { struct BrowserImage; }
-// Forward declaration of `BrowserMediaType` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { enum class BrowserMediaType; }
-// Forward declaration of `BrowserRect` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { struct BrowserRect; }
-// Forward declaration of `HybridGKPhotoBrowserSpec` to properly resolve imports.
-namespace margelo::nitro::gkphotobrowser { class HybridGKPhotoBrowserSpec; }
+
 
 // Include C++ defined types
-#include "BrowserConfig.hpp"
-#include "BrowserImage.hpp"
-#include "BrowserMediaType.hpp"
-#include "BrowserRect.hpp"
-#include "HybridGKPhotoBrowserSpec.hpp"
-#include <NitroModules/Result.hpp>
-#include <exception>
-#include <functional>
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
+
 
 // C++ helpers for Swift
 #include "NitroGkPhotoBrowser-Swift-Cxx-Bridge.hpp"
@@ -43,8 +23,7 @@ namespace margelo::nitro::gkphotobrowser { class HybridGKPhotoBrowserSpec; }
 #include <NitroModules/DateToChronoDate.hpp>
 
 // Forward declarations of Swift defined types
-// Forward declaration of `HybridGKPhotoBrowserSpec_cxx` to properly resolve imports.
-namespace NitroGkPhotoBrowser { class HybridGKPhotoBrowserSpec_cxx; }
+
 
 // Include Swift defined types
 #if __has_include("NitroGkPhotoBrowser-Swift.h")

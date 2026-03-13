@@ -12,7 +12,8 @@
     "react-native.config.js",
     "lib",
     "nitrogen",
-    "ios/**/*.{h,m,mm,swift}",
+    "ios/**/*.{h,m,mm}",
+    "cpp/**/*.{h,hpp,c,cpp,mm}",
     "nitro.json",
     "*.podspec",
     "README.md"
@@ -20,7 +21,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit false",
-    "specs": "tsc --noEmit false && nitrogen --logLevel=debug"
+    "specs": "tsc --noEmit false && nitrogen --logLevel=debug && bun run scripts/fix-ios-autolinking.mjs"
   },
   "keywords": [
     "react-native",
