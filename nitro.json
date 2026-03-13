@@ -1,0 +1,23 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": [
+    "gkphotobrowser"
+  ],
+  "ios": {
+    "iosModuleName": "NitroGkPhotoBrowser"
+  },
+  "android": {
+    "androidNamespace": [
+      "gkphotobrowser"
+    ],
+    "androidCxxLibName": "NitroGkPhotoBrowser"
+  },
+  "autolinking": {
+    "GKPhotoBrowser": {
+      "swift": "GKPhotoBrowserImpl"
+    }
+  },
+  "ignorePaths": [
+    "**/node_modules"
+  ]
+}
