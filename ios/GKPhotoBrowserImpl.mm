@@ -536,7 +536,8 @@ void GKPhotoBrowserRuntime::handleDismissWillStart() {
   [cover_ setActionButtonsHiddenByDismiss:YES];
 }
 
-GKPhotoBrowserImpl::GKPhotoBrowserImpl() : runtime_(std::make_unique<GKPhotoBrowserRuntime>()) {}
+GKPhotoBrowserImpl::GKPhotoBrowserImpl()
+    : HybridObject(TAG), runtime_(std::make_unique<GKPhotoBrowserRuntime>()) {}
 
 GKPhotoBrowserImpl::~GKPhotoBrowserImpl() = default;
 
