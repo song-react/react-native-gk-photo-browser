@@ -40,7 +40,7 @@ export interface BrowserCallbacks {
     onForward?: (index: number) => void;
 }
 export interface GKPhotoBrowser extends HybridObject<{
-    ios: 'swift';
+    ios: 'c++';
 }> {
     show(config: BrowserConfig, onDismiss: () => void, onDownload: (index: number) => void, onForward: (index: number) => void): void;
     dismiss(): void;
