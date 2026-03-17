@@ -156,6 +156,22 @@ static void *GKRNPlayerPresentationSizeContext = &GKRNPlayerPresentationSizeCont
 @property(nonatomic, assign) BOOL wasPlayingBeforeBackground;
 @property(nonatomic, assign) NSTimeInterval seekTime;
 @property(nonatomic, copy, nullable) void (^seekCompletion)(BOOL finished);
+@property(nonatomic, strong, nonnull) UIView *controlsContainer;
+@property(nonatomic, strong, nonnull) UISlider *progressSlider;
+@property(nonatomic, strong, nonnull) UILabel *currentTimeLabel;
+@property(nonatomic, strong, nonnull) UILabel *totalTimeLabel;
+@property(nonatomic, strong, nonnull) UIButton *playPauseButton;
+@property(nonatomic, assign) BOOL isScrubbing;
+@property(nonatomic, assign) BOOL wasPlayingBeforeScrubbing;
+@property(nonatomic, assign) BOOL controlsHiddenByPan;
+@property(nonatomic, assign) BOOL controlsHiddenByDismiss;
+@property(nonatomic, assign) BOOL ignoreSingleTap;
+@property(nonatomic, assign) NSInteger ignoreSingleTapGeneration;
+- (void)setControlsHiddenByPan:(BOOL)hidden;
+- (void)setControlsHiddenByDismiss:(BOOL)hidden;
+- (void)togglePlayPause;
+- (void)markIgnoreSingleTapTemporarily;
+- (void)updatePlayPauseButton;
 @end
 
 @interface GKPhotoBrowserDelegateProxy : NSObject <GKPhotoBrowserDelegate>
@@ -200,6 +216,7 @@ class GKPhotoBrowserRuntime {
   __strong GKPhotoBrowserDelegateProxy *delegateProxy_ = nil;
   __strong id forwardObserver_ = nil;
   __strong GKRNPhotoBrowserCover *cover_ = nil;
+  __strong GKRNAVPlayerManager *playerManager_ = nil;
   std::function<void()> onDismissCallback_;
   std::function<void(double)> onDownloadCallback_;
   std::function<void(double)> onForwardCallback_;
@@ -261,6 +278,7 @@ GKPhotoBrowserRuntime::~GKPhotoBrowserRuntime() {
     removeForwardObserver();
     browser_ = nil;
     cover_ = nil;
+    playerManager_ = nil;
     onDismissCallback_ = nullptr;
     onDownloadCallback_ = nullptr;
     onForwardCallback_ = nullptr;
@@ -341,6 +359,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
 
   GKRNAVPlayerManager *playerManager = [GKRNAVPlayerManager new];
   [configure setupVideoPlayerProtocol:playerManager];
+  playerManager_ = playerManager;
 
   GKRNPhotoBrowserCover *cover = [GKRNPhotoBrowserCover new];
   cover.showCloseButton = config.showCloseButton.value_or(true);
@@ -359,9 +378,11 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
 void GKPhotoBrowserRuntime::dismissOnMain() {
   removeForwardObserver();
   [cover_ setActionButtonsHiddenByDismiss:YES];
+  [playerManager_ setControlsHiddenByDismiss:YES];
   [browser_ dismiss];
   browser_ = nil;
   cover_ = nil;
+  playerManager_ = nil;
 }
 
 GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
@@ -518,6 +539,7 @@ void GKPhotoBrowserRuntime::handleDidDisappear() {
   removeForwardObserver();
   browser_ = nil;
   cover_ = nil;
+  playerManager_ = nil;
   if (shouldNotifyDismiss_ && onDismissCallback_) {
     onDismissCallback_();
   }
@@ -525,15 +547,18 @@ void GKPhotoBrowserRuntime::handleDidDisappear() {
 
 void GKPhotoBrowserRuntime::handlePanBegin() {
   [cover_ setActionButtonsHiddenByPan:YES];
+  [playerManager_ setControlsHiddenByPan:YES];
 }
 
 void GKPhotoBrowserRuntime::handlePanEnded(BOOL willDisappear) {
   if (willDisappear) return;
   [cover_ setActionButtonsHiddenByPan:NO];
+  [playerManager_ setControlsHiddenByPan:NO];
 }
 
 void GKPhotoBrowserRuntime::handleDismissWillStart() {
   [cover_ setActionButtonsHiddenByDismiss:YES];
+  [playerManager_ setControlsHiddenByDismiss:YES];
 }
 
 GKPhotoBrowserImpl::GKPhotoBrowserImpl()
@@ -742,6 +767,57 @@ void GKPhotoBrowserImpl::dismiss() {
     _shouldPlayWhenReady = NO;
     _wasPlayingBeforeBackground = NO;
     _seekTime = 0;
+    _controlsHiddenByPan = NO;
+    _controlsHiddenByDismiss = NO;
+    _isScrubbing = NO;
+    _wasPlayingBeforeScrubbing = NO;
+    _ignoreSingleTap = NO;
+    _ignoreSingleTapGeneration = 0;
+
+    _controlsContainer = [UIView new];
+    _controlsContainer.backgroundColor = [UIColor colorWithWhite:0 alpha:0.18];
+    _controlsContainer.layer.cornerRadius = 18.0;
+    _controlsContainer.clipsToBounds = YES;
+    _controlsContainer.hidden = YES;
+
+    _progressSlider = [UISlider new];
+    _progressSlider.minimumValue = 0;
+    _progressSlider.maximumValue = 1;
+    _progressSlider.value = 0;
+    _progressSlider.minimumTrackTintColor = UIColor.whiteColor;
+    _progressSlider.maximumTrackTintColor = [UIColor colorWithWhite:1 alpha:0.28];
+    _progressSlider.tintColor = UIColor.whiteColor;
+
+    UIFont *timeFont = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightMedium];
+    _currentTimeLabel = [UILabel new];
+    _currentTimeLabel.font = timeFont;
+    _currentTimeLabel.textColor = UIColor.whiteColor;
+    _currentTimeLabel.textAlignment = NSTextAlignmentLeft;
+    _currentTimeLabel.text = @"00:00";
+
+    _totalTimeLabel = [UILabel new];
+    _totalTimeLabel.font = timeFont;
+    _totalTimeLabel.textColor = UIColor.whiteColor;
+    _totalTimeLabel.textAlignment = NSTextAlignmentRight;
+    _totalTimeLabel.text = @"00:00";
+
+    _playPauseButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _playPauseButton.tintColor = UIColor.whiteColor;
+    _playPauseButton.backgroundColor = UIColor.clearColor;
+
+    [_controlsContainer addSubview:_progressSlider];
+    [_controlsContainer addSubview:_currentTimeLabel];
+    [_controlsContainer addSubview:_totalTimeLabel];
+    [_controlsContainer addSubview:_playPauseButton];
+    [_videoPlayView addSubview:_controlsContainer];
+
+    [_progressSlider addTarget:self action:@selector(onSliderTouchDown) forControlEvents:UIControlEventTouchDown];
+    [_progressSlider addTarget:self action:@selector(onSliderValueChanged) forControlEvents:UIControlEventValueChanged];
+    [_progressSlider addTarget:self action:@selector(onSliderTouchUp) forControlEvents:UIControlEventTouchUpInside];
+    [_progressSlider addTarget:self action:@selector(onSliderTouchUp) forControlEvents:UIControlEventTouchUpOutside];
+    [_progressSlider addTarget:self action:@selector(onSliderTouchUp) forControlEvents:UIControlEventTouchCancel];
+    [_playPauseButton addTarget:self action:@selector(onPlayPause) forControlEvents:UIControlEventTouchUpInside];
+    [self updatePlayPauseButton];
   }
   return self;
 }
@@ -752,9 +828,96 @@ void GKPhotoBrowserImpl::dismiss() {
 
 - (void)setStatus:(GKVideoPlayerStatus)status {
   _status = status;
+  [self updatePlayPauseButton];
   if (self.playerStatusChange != nil) {
     self.playerStatusChange(self, status);
   }
+}
+
+- (NSString *)stringFromTime:(NSTimeInterval)time {
+  NSInteger totalSeconds = MAX(0, (NSInteger)llround(time));
+  NSInteger minutes = totalSeconds / 60;
+  NSInteger seconds = totalSeconds % 60;
+  return [NSString stringWithFormat:@"%02ld:%02ld", (long)minutes, (long)seconds];
+}
+
+- (void)updateTimeLabelsWithCurrentTime:(NSTimeInterval)currentTime totalTime:(NSTimeInterval)totalTime {
+  self.currentTimeLabel.text = [self stringFromTime:currentTime];
+  self.totalTimeLabel.text = [self stringFromTime:totalTime];
+  if (!self.isScrubbing) {
+    self.progressSlider.value = totalTime > 0 ? MIN(MAX(currentTime / totalTime, 0), 1) : 0;
+  }
+}
+
+- (void)layoutControls {
+  if (CGRectIsEmpty(self.videoPlayView.bounds)) return;
+
+  CGFloat horizontalInset = 18.0;
+  CGFloat containerHeight = 92.0;
+  CGFloat bottomInset = self.videoPlayView.safeAreaInsets.bottom;
+  CGFloat width = CGRectGetWidth(self.videoPlayView.bounds) - horizontalInset * 2.0;
+  CGFloat originY = CGRectGetHeight(self.videoPlayView.bounds) - bottomInset - containerHeight;
+  self.controlsContainer.frame = CGRectMake(horizontalInset, originY, width, containerHeight);
+
+  CGFloat labelHeight = 24.0;
+  CGFloat labelWidth = 72.0;
+  CGFloat buttonSize = 32.0;
+  CGFloat sliderTop = 22.0;
+  self.progressSlider.frame = CGRectMake(16.0, sliderTop, width - 32.0, 28.0);
+  self.currentTimeLabel.frame = CGRectMake(16.0, CGRectGetMaxY(self.progressSlider.frame) + 10.0, labelWidth, labelHeight);
+  self.playPauseButton.frame = CGRectMake((width - buttonSize) * 0.5,
+                                          CGRectGetMaxY(self.progressSlider.frame) + 6.0,
+                                          buttonSize,
+                                          buttonSize);
+  self.totalTimeLabel.frame = CGRectMake(width - 16.0 - labelWidth,
+                                         CGRectGetMaxY(self.progressSlider.frame) + 10.0,
+                                         labelWidth,
+                                         labelHeight);
+}
+
+- (void)applyControlsHiddenState {
+  self.controlsContainer.hidden = self.controlsHiddenByPan || self.controlsHiddenByDismiss || self.totalTime <= 0;
+}
+
+- (void)onSliderTouchDown {
+  [self markIgnoreSingleTapTemporarily];
+  self.isScrubbing = YES;
+  self.wasPlayingBeforeScrubbing = self.isPlaying;
+  [self.player pause];
+  self.isPlaying = NO;
+  self.status = GKVideoPlayerStatusPaused;
+}
+
+- (void)onSliderValueChanged {
+  [self markIgnoreSingleTapTemporarily];
+  NSTimeInterval targetTime = self.totalTime * self.progressSlider.value;
+  [self updateTimeLabelsWithCurrentTime:targetTime totalTime:self.totalTime];
+}
+
+- (void)onSliderTouchUp {
+  [self markIgnoreSingleTapTemporarily];
+  NSTimeInterval targetTime = self.totalTime * self.progressSlider.value;
+  BOOL shouldResume = self.wasPlayingBeforeScrubbing;
+  __weak GKRNAVPlayerManager *weakSelf = self;
+  [self gk_seekToTime:targetTime
+    completionHandler:^(BOOL finished) {
+      __strong GKRNAVPlayerManager *strongSelf = weakSelf;
+      if (strongSelf == nil) return;
+      strongSelf.currentTime = targetTime;
+      strongSelf.isScrubbing = NO;
+      [strongSelf updateTimeLabelsWithCurrentTime:targetTime totalTime:strongSelf.totalTime];
+      if (shouldResume) {
+        [strongSelf gk_play];
+      } else {
+        strongSelf.isPlaying = NO;
+        strongSelf.status = GKVideoPlayerStatusPaused;
+      }
+    }];
+}
+
+- (void)onPlayPause {
+  [self markIgnoreSingleTapTemporarily];
+  [self togglePlayPause];
 }
 
 - (void)gk_prepareToPlay {
@@ -835,6 +998,10 @@ void GKPhotoBrowserImpl::dismiss() {
   self.isPlaying = NO;
   self.seekTime = 0;
   self.seekCompletion = nil;
+  self.isScrubbing = NO;
+  self.wasPlayingBeforeScrubbing = NO;
+  [self updateTimeLabelsWithCurrentTime:0 totalTime:0];
+  self.controlsContainer.hidden = YES;
 }
 
 - (void)gk_seekToTime:(NSTimeInterval)time completionHandler:(void (^)(BOOL))completionHandler {
@@ -854,10 +1021,54 @@ void GKPhotoBrowserImpl::dismiss() {
 
 - (void)gk_updateFrame:(CGRect)frame {
   self.videoPlayView.frame = frame;
+  [self layoutControls];
 }
 
 - (void)gk_setMute:(BOOL)mute {
   self.player.muted = mute;
+}
+
+- (void)setControlsHiddenByPan:(BOOL)hidden {
+  _controlsHiddenByPan = hidden;
+  [self applyControlsHiddenState];
+}
+
+- (void)setControlsHiddenByDismiss:(BOOL)hidden {
+  _controlsHiddenByDismiss = hidden;
+  [self applyControlsHiddenState];
+}
+
+- (void)togglePlayPause {
+  if (self.player == nil) return;
+  if (self.status == GKVideoPlayerStatusEnded || (self.totalTime > 0 && self.currentTime >= self.totalTime - 0.2)) {
+    [self gk_replay];
+    return;
+  }
+  if (self.isPlaying) {
+    [self gk_pause];
+  } else {
+    [self gk_play];
+  }
+}
+
+- (void)updatePlayPauseButton {
+  NSString *systemName = self.isPlaying ? @"pause.fill" : @"play.fill";
+  UIImageSymbolConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightSemibold];
+  UIImage *image = [[UIImage systemImageNamed:systemName] imageByApplyingSymbolConfiguration:configuration];
+  [self.playPauseButton setImage:image forState:UIControlStateNormal];
+}
+
+- (void)markIgnoreSingleTapTemporarily {
+  self.ignoreSingleTap = YES;
+  self.ignoreSingleTapGeneration += 1;
+  NSInteger generation = self.ignoreSingleTapGeneration;
+  __weak GKRNAVPlayerManager *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    __strong GKRNAVPlayerManager *strongSelf = weakSelf;
+    if (strongSelf == nil) return;
+    if (strongSelf.ignoreSingleTapGeneration != generation) return;
+    strongSelf.ignoreSingleTap = NO;
+  });
 }
 
 - (void)preparePlayableURLFromURL:(NSURL *)url {
@@ -1015,6 +1226,8 @@ void GKPhotoBrowserImpl::dismiss() {
                 if (strongSelf.status != GKVideoPlayerStatusEnded) {
                   strongSelf.status = GKVideoPlayerStatusEnded;
                   strongSelf.isPlaying = NO;
+                  strongSelf.currentTime = strongSelf.totalTime;
+                  [strongSelf updateTimeLabelsWithCurrentTime:strongSelf.currentTime totalTime:strongSelf.totalTime];
                   [strongSelf gk_seekToTime:0 completionHandler:nil];
                 }
               }];
@@ -1072,6 +1285,9 @@ void GKPhotoBrowserImpl::dismiss() {
                                 if (strongSelf.playerPlayTimeChange != nil) {
                                   strongSelf.playerPlayTimeChange(strongSelf, strongSelf.currentTime, strongSelf.totalTime);
                                 }
+                                if (!strongSelf.isScrubbing) {
+                                  [strongSelf updateTimeLabelsWithCurrentTime:strongSelf.currentTime totalTime:strongSelf.totalTime];
+                                }
                               }];
 }
 
@@ -1085,6 +1301,9 @@ void GKPhotoBrowserImpl::dismiss() {
       self.status = GKVideoPlayerStatusPlaying;
       double duration = CMTimeGetSeconds(item.duration);
       self.totalTime = isfinite(duration) ? duration : 0;
+      self.controlsContainer.hidden = NO;
+      [self updateTimeLabelsWithCurrentTime:self.currentTime totalTime:self.totalTime];
+      [self applyControlsHiddenState];
       [self installTimeObserver];
 
       if (self.seekTime > 0) {
