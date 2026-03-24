@@ -37,6 +37,7 @@ export interface BrowserConfig {
   showCloseButton?: boolean
   showDownloadButton?: boolean
   showForwardButton?: boolean
+  isSingleTapDisabled?: boolean
 }
 
 export interface BrowserCallbacks {
