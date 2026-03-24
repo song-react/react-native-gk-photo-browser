@@ -58,10 +58,11 @@ namespace margelo::nitro::gkphotobrowser {
     std::optional<bool> showCloseButton     SWIFT_PRIVATE;
     std::optional<bool> showDownloadButton     SWIFT_PRIVATE;
     std::optional<bool> showForwardButton     SWIFT_PRIVATE;
+    std::optional<bool> isSingleTapDisabled     SWIFT_PRIVATE;
 
   public:
     BrowserConfig() = default;
-    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesCountLabel, std::optional<bool> showsPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> showCloseButton, std::optional<bool> showDownloadButton, std::optional<bool> showForwardButton): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesCountLabel(hidesCountLabel), showsPageControl(showsPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), showCloseButton(showCloseButton), showDownloadButton(showDownloadButton), showForwardButton(showForwardButton) {}
+    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesCountLabel, std::optional<bool> showsPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> showCloseButton, std::optional<bool> showDownloadButton, std::optional<bool> showForwardButton, std::optional<bool> isSingleTapDisabled): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesCountLabel(hidesCountLabel), showsPageControl(showsPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), showCloseButton(showCloseButton), showDownloadButton(showDownloadButton), showForwardButton(showForwardButton), isSingleTapDisabled(isSingleTapDisabled) {}
 
   public:
     friend bool operator==(const BrowserConfig& lhs, const BrowserConfig& rhs) = default;
@@ -91,7 +92,8 @@ namespace margelo::nitro {
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showCloseButton"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showDownloadButton"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton")))
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::gkphotobrowser::BrowserConfig& arg) {
@@ -111,6 +113,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "showCloseButton"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showCloseButton));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "showDownloadButton"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showDownloadButton));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showForwardButton));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isSingleTapDisabled));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -136,6 +139,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showCloseButton")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showDownloadButton")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled")))) return false;
       return true;
     }
   };

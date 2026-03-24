@@ -1,6 +1,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Foundation/Foundation.h>
 #import <GKPhotoBrowser/GKPhotoBrowser.h>
+#import <Photos/Photos.h>
 #import <SDWebImage/SDWebImageDownloader.h>
 #import <UIKit/UIKit.h>
 
@@ -9,6 +10,10 @@
 using namespace margelo::nitro::gkphotobrowser;
 
 static NSString *const GKRNPhotoBrowserForwardNotification = @"gkPhotoBrowserForward";
+static const NSTimeInterval GKRNActionControlsAutoHideDelay = 3.0;
+static NSString *const GKRNPhotoBrowserDownloadCompletedText = @"下载完成";
+static NSString *const GKRNPhotoBrowserSaveFailedText = @"保存失败";
+static NSString *const GKRNPhotoBrowserSavePermissionText = @"需要相册权限才能保存";
 
 template <typename Fn>
 static inline void GKRNRunOnMainSync(Fn &&fn) {
@@ -107,12 +112,164 @@ static UIViewController *_Nullable GKRNCurrentTopViewController(void) {
   return GKRNTopViewController(keyWindow.rootViewController);
 }
 
+static NSDictionary<NSString *, NSString *> *_Nullable GKRNHeadersFromPhoto(GKPhoto *_Nullable photo) {
+  if (photo == nil || ![photo.extraInfo isKindOfClass:NSDictionary.class]) return nil;
+  NSDictionary *info = (NSDictionary *)photo.extraInfo;
+  NSDictionary *headers = info[@"headers"];
+  if (![headers isKindOfClass:NSDictionary.class]) return nil;
+  return (NSDictionary<NSString *, NSString *> *)headers;
+}
+
+static void GKRNShowToast(UIView *_Nullable hostView, NSString *message) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    UIView *container = hostView.window ?: hostView ?: GKRNCurrentTopViewController().view.window;
+    if (container == nil || message.length == 0) return;
+
+    UILabel *label = [UILabel new];
+    label.text = message;
+    label.textColor = UIColor.whiteColor;
+    label.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
+    label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    label.textAlignment = NSTextAlignmentCenter;
+    label.numberOfLines = 0;
+    label.layer.cornerRadius = 10;
+    label.clipsToBounds = YES;
+    label.alpha = 0;
+
+    CGSize maxSize = CGSizeMake(CGRectGetWidth(container.bounds) - 64.0, CGFLOAT_MAX);
+    CGSize textSize = [label sizeThatFits:maxSize];
+    CGFloat width = MIN(maxSize.width, textSize.width + 28.0);
+    CGFloat height = textSize.height + 18.0;
+    label.frame = CGRectMake((CGRectGetWidth(container.bounds) - width) * 0.5,
+                             CGRectGetHeight(container.bounds) * 0.28,
+                             width,
+                             height);
+
+    [container addSubview:label];
+    [UIView animateWithDuration:0.18
+                     animations:^{
+                       label.alpha = 1.0;
+                     }
+                     completion:^(BOOL finished) {
+                       [UIView animateWithDuration:0.2
+                                             delay:1.0
+                                           options:UIViewAnimationOptionCurveEaseInOut
+                                        animations:^{
+                                          label.alpha = 0.0;
+                                        }
+                                        completion:^(BOOL finished) {
+                                          [label removeFromSuperview];
+                                        }];
+                     }];
+  });
+}
+
+static void GKRNRequestPhotoLibraryAddAccess(void (^completion)(BOOL granted)) {
+  void (^resolve)(PHAuthorizationStatus) = ^(PHAuthorizationStatus status) {
+    BOOL granted = status == PHAuthorizationStatusAuthorized || status == PHAuthorizationStatusLimited;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      completion(granted);
+    });
+  };
+
+  if (@available(iOS 14.0, *)) {
+    [PHPhotoLibrary requestAuthorizationForAccessLevel:PHAccessLevelAddOnly
+                                               handler:^(PHAuthorizationStatus status) {
+                                                 resolve(status);
+                                               }];
+  } else {
+    [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus status) {
+      resolve(status);
+    }];
+  }
+}
+
+static void GKRNSavePhotoLibraryChange(UIView *_Nullable hostView, void (^changes)(void)) {
+  GKRNRequestPhotoLibraryAddAccess(^(BOOL granted) {
+    if (!granted) {
+      GKRNShowToast(hostView, GKRNPhotoBrowserSavePermissionText);
+      return;
+    }
+
+    [[PHPhotoLibrary sharedPhotoLibrary] performChanges:changes
+                                      completionHandler:^(BOOL success, NSError *_Nullable error) {
+                                        if (success && error == nil) {
+                                          GKRNShowToast(hostView, GKRNPhotoBrowserDownloadCompletedText);
+                                        } else {
+                                          GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+                                        }
+                                      }];
+  });
+}
+
+static void GKRNSaveImageToPhotoLibrary(UIView *_Nullable hostView, UIImage *image) {
+  GKRNSavePhotoLibraryChange(hostView, ^{
+    [PHAssetCreationRequest creationRequestForAssetFromImage:image];
+  });
+}
+
+static void GKRNSaveFileURLToPhotoLibrary(UIView *_Nullable hostView, NSURL *fileURL, BOOL isVideo) {
+  GKRNSavePhotoLibraryChange(hostView, ^{
+    if (isVideo) {
+      [PHAssetCreationRequest creationRequestForAssetFromVideoAtFileURL:fileURL];
+    } else {
+      [PHAssetCreationRequest creationRequestForAssetFromImageAtFileURL:fileURL];
+    }
+  });
+}
+
+static void GKRNDownloadURLToTemporaryFile(NSURL *url,
+                                           NSDictionary<NSString *, NSString *> *_Nullable headers,
+                                           NSString *fallbackExtension,
+                                           void (^completion)(NSURL *_Nullable localURL)) {
+  if (url.isFileURL) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      completion(url);
+    });
+    return;
+  }
+
+  NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+  request.timeoutInterval = 300;
+  [headers enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
+    [request setValue:value forHTTPHeaderField:key];
+  }];
+
+  [[[NSURLSession sharedSession]
+      downloadTaskWithRequest:request
+            completionHandler:^(NSURL *_Nullable tempURL, NSURLResponse *_Nullable response, NSError *_Nullable error) {
+              if (tempURL == nil || error != nil) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                  completion(nil);
+                });
+                return;
+              }
+
+              NSString *extension = url.pathExtension.length > 0 ? url.pathExtension : fallbackExtension;
+              NSString *filename = [NSString stringWithFormat:@"%@.%@", NSUUID.UUID.UUIDString, extension.length > 0 ? extension : fallbackExtension];
+              NSURL *destinationURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:filename]];
+
+              NSError *copyError = nil;
+              if ([NSFileManager.defaultManager fileExistsAtPath:destinationURL.path]) {
+                [NSFileManager.defaultManager removeItemAtURL:destinationURL error:nil];
+              }
+              [NSFileManager.defaultManager copyItemAtURL:tempURL toURL:destinationURL error:&copyError];
+
+              dispatch_async(dispatch_get_main_queue(), ^{
+                completion(copyError == nil ? destinationURL : nil);
+              });
+            }] resume];
+}
+
 @interface GKRNPhotoBrowserCover : NSObject <GKCoverViewProtocol>
 @property(nonatomic, weak, nullable) GKPhotoBrowser *browser;
 @property(nonatomic, weak, nullable) GKPhoto *photo;
 @property(nonatomic, assign) BOOL showCloseButton;
 @property(nonatomic, assign) BOOL showDownloadButton;
 @property(nonatomic, assign) BOOL showForwardButton;
+- (BOOL)areActionButtonsVisible;
+- (void)toggleActionButtonsAnimated;
+- (void)showActionButtonsAnimated:(BOOL)animated autoHide:(BOOL)autoHide;
 - (void)setActionButtonsHiddenByPan:(BOOL)hidden;
 - (void)setActionButtonsHiddenByDismiss:(BOOL)hidden;
 @end
@@ -167,8 +324,14 @@ static void *GKRNPlayerPresentationSizeContext = &GKRNPlayerPresentationSizeCont
 @property(nonatomic, assign) BOOL controlsHiddenByDismiss;
 @property(nonatomic, assign) BOOL ignoreSingleTap;
 @property(nonatomic, assign) NSInteger ignoreSingleTapGeneration;
+@property(nonatomic, assign) BOOL controlsVisible;
+@property(nonatomic, assign) NSInteger controlsAutoHideGeneration;
 - (void)setControlsHiddenByPan:(BOOL)hidden;
 - (void)setControlsHiddenByDismiss:(BOOL)hidden;
+- (BOOL)areControlsVisible;
+- (BOOL)shouldIgnoreSingleTap;
+- (void)toggleControlsAnimated;
+- (void)showControlsAnimated:(BOOL)animated autoHide:(BOOL)autoHide;
 - (void)togglePlayPause;
 - (void)markIgnoreSingleTapTemporarily;
 - (void)updatePlayPauseButton;
@@ -195,6 +358,8 @@ class GKPhotoBrowserRuntime {
   void handleDidDisappear();
   void handlePanBegin();
   void handlePanEnded(BOOL willDisappear);
+  void handlePhotoSelected(NSInteger index);
+  void handleSingleTap(NSInteger index);
   void handleDismissWillStart();
 
  private:
@@ -205,6 +370,7 @@ class GKPhotoBrowserRuntime {
   void dismissOnMain();
   GKPhoto *_Nullable makePhoto(const BrowserImage &image);
   void installImageHeaders(const std::vector<BrowserImage> &images);
+  bool shouldAutoLoadOriginAtIndex(NSInteger index) const;
   void installForwardObserver();
   void removeForwardObserver();
   GKPhotoBrowserShowStyle mapShowStyle(const std::optional<std::string> &value);
@@ -217,6 +383,7 @@ class GKPhotoBrowserRuntime {
   __strong id forwardObserver_ = nil;
   __strong GKRNPhotoBrowserCover *cover_ = nil;
   __strong GKRNAVPlayerManager *playerManager_ = nil;
+  std::vector<BrowserImage> images_;
   std::function<void()> onDismissCallback_;
   std::function<void(double)> onDownloadCallback_;
   std::function<void(double)> onForwardCallback_;
@@ -229,6 +396,13 @@ static inline margelo::nitro::gkphotobrowser::GKPhotoBrowserRuntime *_Nullable G
 }
 
 @implementation GKPhotoBrowserDelegateProxy
+- (void)photoBrowser:(GKPhotoBrowser *)browser didSelectAtIndex:(NSInteger)index {
+  auto *owner = GKRNRuntimeFromOwner(self.owner);
+  if (owner != nullptr) {
+    owner->handlePhotoSelected(index);
+  }
+}
+
 - (void)photoBrowser:(GKPhotoBrowser *)browser onSaveBtnClick:(NSInteger)index image:(UIImage *)image {
   auto *owner = GKRNRuntimeFromOwner(self.owner);
   if (owner != nullptr) {
@@ -260,7 +434,7 @@ static inline margelo::nitro::gkphotobrowser::GKPhotoBrowserRuntime *_Nullable G
 - (void)photoBrowser:(GKPhotoBrowser *)browser singleTapWithIndex:(NSInteger)index {
   auto *owner = GKRNRuntimeFromOwner(self.owner);
   if (owner != nullptr) {
-    owner->handleDismissWillStart();
+    owner->handleSingleTap(index);
   }
 }
 @end
@@ -313,6 +487,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   onDismissCallback_ = onDismiss;
   onDownloadCallback_ = onDownload;
   onForwardCallback_ = onForward;
+  images_ = config.images;
 
   if (browser_ != nil) {
     shouldNotifyDismiss_ = false;
@@ -356,6 +531,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   configure.hidesSavedBtn = !config.showDownloadButton.value_or(false);
   configure.isAdaptiveSafeArea = config.isAdaptiveSafeArea.value_or(false);
   configure.isFollowSystemRotation = config.isFollowSystemRotation.value_or(false);
+  configure.isSingleTapDisabled = config.isSingleTapDisabled.value_or(false);
 
   GKRNAVPlayerManager *playerManager = [GKRNAVPlayerManager new];
   [configure setupVideoPlayerProtocol:playerManager];
@@ -383,6 +559,7 @@ void GKPhotoBrowserRuntime::dismissOnMain() {
   browser_ = nil;
   cover_ = nil;
   playerManager_ = nil;
+  images_.clear();
 }
 
 GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
@@ -403,6 +580,12 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
   if (image.sourceFrame.has_value()) {
     const BrowserRect &source = image.sourceFrame.value();
     photo.sourceFrame = CGRectMake(source.x, source.y, source.width, source.height);
+    // GKPhotoBrowser's dismiss animation requires sourceImageView to exist even
+    // when a concrete sourceFrame is provided. Use a detached placeholder view
+    // so hideStyle can still animate back to sourceFrame.
+    UIImageView *sourceImageView = [UIImageView new];
+    sourceImageView.contentMode = UIViewContentModeScaleAspectFill;
+    photo.sourceImageView = sourceImageView;
   }
 
   NSString *placeholderPath = GKRNStringFromOptional(image.placeholderPath);
@@ -478,6 +661,18 @@ void GKPhotoBrowserRuntime::installImageHeaders(const std::vector<BrowserImage> 
   }];
 }
 
+bool GKPhotoBrowserRuntime::shouldAutoLoadOriginAtIndex(NSInteger index) const {
+  if (index < 0 || index >= (NSInteger)images_.size()) return false;
+
+  const BrowserImage &image = images_[(size_t)index];
+  if (image.type.has_value() && image.type.value() == BrowserMediaType::VIDEO) {
+    return false;
+  }
+
+  NSString *originUri = GKRNStringFromOptional(image.originUri);
+  return originUri.length > 0;
+}
+
 void GKPhotoBrowserRuntime::installForwardObserver() {
   removeForwardObserver();
   __weak GKPhotoBrowser *weakBrowser = browser_;
@@ -524,9 +719,48 @@ GKPhotoBrowserLoadStyle GKPhotoBrowserRuntime::mapLoadStyle(const std::optional<
 }
 
 void GKPhotoBrowserRuntime::handleDownload(NSInteger index) {
-  if (onDownloadCallback_) {
-    onDownloadCallback_((double)index);
+  if (browser_ == nil) return;
+
+  GKPhoto *photo = browser_.curPhoto;
+  UIView *hostView = browser_.view;
+  NSDictionary<NSString *, NSString *> *headers = GKRNHeadersFromPhoto(photo);
+
+  if (photo.isVideo) {
+    NSURL *videoURL = photo.videoUrl;
+    if (videoURL == nil) {
+      GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+      return;
+    }
+
+    GKRNDownloadURLToTemporaryFile(videoURL, headers, @"mp4", ^(NSURL *_Nullable localURL) {
+      if (localURL == nil) {
+        GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+        return;
+      }
+      GKRNSaveFileURLToPhotoLibrary(hostView, localURL, YES);
+    });
+    return;
   }
+
+  NSURL *imageURL = photo.originUrl ?: photo.url;
+  if (imageURL != nil) {
+    GKRNDownloadURLToTemporaryFile(imageURL, headers, @"jpg", ^(NSURL *_Nullable localURL) {
+      if (localURL == nil) {
+        GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+        return;
+      }
+      GKRNSaveFileURLToPhotoLibrary(hostView, localURL, NO);
+    });
+    return;
+  }
+
+  UIImage *image = browser_.curPhotoView.imageView.image ?: photo.image;
+  if (image != nil) {
+    GKRNSaveImageToPhotoLibrary(hostView, image);
+    return;
+  }
+
+  GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
 }
 
 void GKPhotoBrowserRuntime::handleForward(NSInteger index) {
@@ -540,6 +774,7 @@ void GKPhotoBrowserRuntime::handleDidDisappear() {
   browser_ = nil;
   cover_ = nil;
   playerManager_ = nil;
+  images_.clear();
   if (shouldNotifyDismiss_ && onDismissCallback_) {
     onDismissCallback_();
   }
@@ -554,6 +789,42 @@ void GKPhotoBrowserRuntime::handlePanEnded(BOOL willDisappear) {
   if (willDisappear) return;
   [cover_ setActionButtonsHiddenByPan:NO];
   [playerManager_ setControlsHiddenByPan:NO];
+}
+
+void GKPhotoBrowserRuntime::handlePhotoSelected(NSInteger index) {
+  if (browser_ == nil) return;
+  BOOL usesTapToToggleChrome = browser_.configure.isSingleTapDisabled;
+  [cover_ showActionButtonsAnimated:NO autoHide:usesTapToToggleChrome];
+  if (browser_.curPhoto.isVideo) {
+    [playerManager_ showControlsAnimated:NO autoHide:usesTapToToggleChrome];
+  }
+  if (!shouldAutoLoadOriginAtIndex(index)) return;
+  if (browser_.curPhoto.originFinished) return;
+  [browser_ loadCurrentPhotoImage];
+}
+
+void GKPhotoBrowserRuntime::handleSingleTap(NSInteger index) {
+  if (browser_ == nil) return;
+  if (!browser_.configure.isSingleTapDisabled) {
+    handleDismissWillStart();
+    return;
+  }
+
+  GKPhoto *photo = browser_.curPhoto;
+  if (photo.isVideo) {
+    if ([playerManager_ shouldIgnoreSingleTap]) return;
+    BOOL shouldShow = ![cover_ areActionButtonsVisible] || ![playerManager_ areControlsVisible];
+    if (shouldShow) {
+      [cover_ showActionButtonsAnimated:YES autoHide:YES];
+      [playerManager_ showControlsAnimated:YES autoHide:YES];
+    } else {
+      [cover_ toggleActionButtonsAnimated];
+      [playerManager_ toggleControlsAnimated];
+    }
+    return;
+  }
+
+  [cover_ toggleActionButtonsAnimated];
 }
 
 void GKPhotoBrowserRuntime::handleDismissWillStart() {
@@ -587,6 +858,8 @@ void GKPhotoBrowserImpl::dismiss() {
   UIButton *_forwardButton;
   BOOL _actionButtonsHiddenByPan;
   BOOL _actionButtonsHiddenByDismiss;
+  BOOL _actionButtonsVisible;
+  NSInteger _actionButtonsAutoHideGeneration;
 }
 
 - (instancetype)init {
@@ -597,6 +870,8 @@ void GKPhotoBrowserImpl::dismiss() {
     _showForwardButton = NO;
     _actionButtonsHiddenByPan = NO;
     _actionButtonsHiddenByDismiss = NO;
+    _actionButtonsVisible = YES;
+    _actionButtonsAutoHideGeneration = 0;
 
     _countLabel = [UILabel new];
     _countLabel.textColor = UIColor.whiteColor;
@@ -677,20 +952,90 @@ void GKPhotoBrowserImpl::dismiss() {
 }
 
 - (void)setActionButtonsHiddenByPan:(BOOL)hidden {
+  if (hidden) {
+    _actionButtonsAutoHideGeneration += 1;
+  }
   _actionButtonsHiddenByPan = hidden;
   [self applyActionButtonsHiddenState];
 }
 
 - (void)setActionButtonsHiddenByDismiss:(BOOL)hidden {
+  if (hidden) {
+    _actionButtonsAutoHideGeneration += 1;
+  }
   _actionButtonsHiddenByDismiss = hidden;
   [self applyActionButtonsHiddenState];
 }
 
+- (BOOL)areActionButtonsVisible {
+  return !_actionButtonsHiddenByPan && !_actionButtonsHiddenByDismiss && _actionButtonsVisible;
+}
+
+- (void)toggleActionButtonsAnimated {
+  if ([self areActionButtonsVisible]) {
+    _actionButtonsAutoHideGeneration += 1;
+    _actionButtonsVisible = NO;
+    [self applyActionButtonsHiddenStateAnimated:YES];
+  } else {
+    [self showActionButtonsAnimated:YES autoHide:YES];
+  }
+}
+
+- (void)showActionButtonsAnimated:(BOOL)animated autoHide:(BOOL)autoHide {
+  _actionButtonsAutoHideGeneration += 1;
+  _actionButtonsVisible = YES;
+  [self applyActionButtonsHiddenStateAnimated:animated];
+
+  if (!autoHide) return;
+  if ((!self.showCloseButton && !self.showDownloadButton && !self.showForwardButton) || self.browser == nil) return;
+
+  NSInteger generation = _actionButtonsAutoHideGeneration;
+  __weak GKRNPhotoBrowserCover *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(GKRNActionControlsAutoHideDelay * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   __strong GKRNPhotoBrowserCover *strongSelf = weakSelf;
+                   if (strongSelf == nil) return;
+                   if (strongSelf->_actionButtonsAutoHideGeneration != generation) return;
+                   strongSelf->_actionButtonsVisible = NO;
+                   [strongSelf applyActionButtonsHiddenStateAnimated:YES];
+                 });
+}
+
 - (void)applyActionButtonsHiddenState {
-  BOOL shouldHideAll = _actionButtonsHiddenByPan || _actionButtonsHiddenByDismiss;
-  _closeButton.hidden = shouldHideAll || !self.showCloseButton;
-  _downloadButton.hidden = shouldHideAll || !self.showDownloadButton;
-  _forwardButton.hidden = shouldHideAll || !self.showForwardButton;
+  [self applyActionButtonsHiddenStateAnimated:NO];
+}
+
+- (void)applyActionButtonsHiddenStateAnimated:(BOOL)animated {
+  BOOL shouldShowButtons = !_actionButtonsHiddenByPan && !_actionButtonsHiddenByDismiss && _actionButtonsVisible;
+  [self updateButton:_closeButton shown:shouldShowButtons && self.showCloseButton animated:animated];
+  [self updateButton:_downloadButton shown:shouldShowButtons && self.showDownloadButton animated:animated];
+  [self updateButton:_forwardButton shown:shouldShowButtons && self.showForwardButton animated:animated];
+}
+
+- (void)updateButton:(UIButton *)button shown:(BOOL)shown animated:(BOOL)animated {
+  if (shown) {
+    button.hidden = NO;
+  }
+
+  void (^changes)(void) = ^{
+    button.alpha = shown ? 1.0 : 0.0;
+  };
+
+  void (^completion)(BOOL) = ^(BOOL finished) {
+    button.hidden = !shown;
+  };
+
+  if (!animated) {
+    changes();
+    completion(YES);
+    return;
+  }
+
+  [UIView animateWithDuration:0.22
+                        delay:0
+                      options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
+                   animations:changes
+                   completion:completion];
 }
 
 - (UIEdgeInsets)resolvedSafeAreaInsets {
@@ -773,12 +1118,15 @@ void GKPhotoBrowserImpl::dismiss() {
     _wasPlayingBeforeScrubbing = NO;
     _ignoreSingleTap = NO;
     _ignoreSingleTapGeneration = 0;
+    _controlsVisible = YES;
+    _controlsAutoHideGeneration = 0;
 
     _controlsContainer = [UIView new];
-    _controlsContainer.backgroundColor = [UIColor colorWithWhite:0 alpha:0.18];
+    _controlsContainer.backgroundColor = [UIColor colorWithWhite:0 alpha:0.3];
     _controlsContainer.layer.cornerRadius = 18.0;
     _controlsContainer.clipsToBounds = YES;
     _controlsContainer.hidden = YES;
+    _controlsContainer.alpha = 1.0;
 
     _progressSlider = [UISlider new];
     _progressSlider.minimumValue = 0;
@@ -876,11 +1224,41 @@ void GKPhotoBrowserImpl::dismiss() {
 }
 
 - (void)applyControlsHiddenState {
-  self.controlsContainer.hidden = self.controlsHiddenByPan || self.controlsHiddenByDismiss || self.totalTime <= 0;
+  [self applyControlsHiddenStateAnimated:NO];
+}
+
+- (void)applyControlsHiddenStateAnimated:(BOOL)animated {
+  BOOL shouldShow = !self.controlsHiddenByPan && !self.controlsHiddenByDismiss && self.controlsVisible && self.totalTime > 0;
+  if (shouldShow) {
+    self.controlsContainer.hidden = NO;
+  }
+
+  void (^changes)(void) = ^{
+    self.controlsContainer.alpha = shouldShow ? 1.0 : 0.0;
+  };
+
+  void (^completion)(BOOL) = ^(BOOL finished) {
+    self.controlsContainer.hidden = !shouldShow;
+  };
+
+  if (!animated) {
+    changes();
+    completion(YES);
+    return;
+  }
+
+  [UIView animateWithDuration:0.22
+                        delay:0
+                      options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseInOut
+                   animations:changes
+                   completion:completion];
 }
 
 - (void)onSliderTouchDown {
   [self markIgnoreSingleTapTemporarily];
+  if (self.browser.configure.isSingleTapDisabled) {
+    [self showControlsAnimated:NO autoHide:YES];
+  }
   self.isScrubbing = YES;
   self.wasPlayingBeforeScrubbing = self.isPlaying;
   [self.player pause];
@@ -890,12 +1268,18 @@ void GKPhotoBrowserImpl::dismiss() {
 
 - (void)onSliderValueChanged {
   [self markIgnoreSingleTapTemporarily];
+  if (self.browser.configure.isSingleTapDisabled) {
+    [self showControlsAnimated:NO autoHide:YES];
+  }
   NSTimeInterval targetTime = self.totalTime * self.progressSlider.value;
   [self updateTimeLabelsWithCurrentTime:targetTime totalTime:self.totalTime];
 }
 
 - (void)onSliderTouchUp {
   [self markIgnoreSingleTapTemporarily];
+  if (self.browser.configure.isSingleTapDisabled) {
+    [self showControlsAnimated:NO autoHide:YES];
+  }
   NSTimeInterval targetTime = self.totalTime * self.progressSlider.value;
   BOOL shouldResume = self.wasPlayingBeforeScrubbing;
   __weak GKRNAVPlayerManager *weakSelf = self;
@@ -917,6 +1301,9 @@ void GKPhotoBrowserImpl::dismiss() {
 
 - (void)onPlayPause {
   [self markIgnoreSingleTapTemporarily];
+  if (self.browser.configure.isSingleTapDisabled) {
+    [self showControlsAnimated:NO autoHide:YES];
+  }
   [self togglePlayPause];
 }
 
@@ -1000,7 +1387,10 @@ void GKPhotoBrowserImpl::dismiss() {
   self.seekCompletion = nil;
   self.isScrubbing = NO;
   self.wasPlayingBeforeScrubbing = NO;
+  self.controlsVisible = YES;
+  self.controlsAutoHideGeneration += 1;
   [self updateTimeLabelsWithCurrentTime:0 totalTime:0];
+  self.controlsContainer.alpha = 1.0;
   self.controlsContainer.hidden = YES;
 }
 
@@ -1029,13 +1419,56 @@ void GKPhotoBrowserImpl::dismiss() {
 }
 
 - (void)setControlsHiddenByPan:(BOOL)hidden {
+  if (hidden) {
+    self.controlsAutoHideGeneration += 1;
+  }
   _controlsHiddenByPan = hidden;
   [self applyControlsHiddenState];
 }
 
 - (void)setControlsHiddenByDismiss:(BOOL)hidden {
+  if (hidden) {
+    self.controlsAutoHideGeneration += 1;
+  }
   _controlsHiddenByDismiss = hidden;
   [self applyControlsHiddenState];
+}
+
+- (BOOL)areControlsVisible {
+  return !self.controlsHiddenByPan && !self.controlsHiddenByDismiss && self.controlsVisible && self.totalTime > 0;
+}
+
+- (BOOL)shouldIgnoreSingleTap {
+  return self.ignoreSingleTap;
+}
+
+- (void)toggleControlsAnimated {
+  if ([self areControlsVisible]) {
+    self.controlsAutoHideGeneration += 1;
+    self.controlsVisible = NO;
+    [self applyControlsHiddenStateAnimated:YES];
+  } else {
+    [self showControlsAnimated:YES autoHide:YES];
+  }
+}
+
+- (void)showControlsAnimated:(BOOL)animated autoHide:(BOOL)autoHide {
+  self.controlsAutoHideGeneration += 1;
+  self.controlsVisible = YES;
+  [self applyControlsHiddenStateAnimated:animated];
+
+  if (!autoHide || !self.browser.configure.isSingleTapDisabled || self.totalTime <= 0) return;
+
+  NSInteger generation = self.controlsAutoHideGeneration;
+  __weak GKRNAVPlayerManager *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(GKRNActionControlsAutoHideDelay * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   __strong GKRNAVPlayerManager *strongSelf = weakSelf;
+                   if (strongSelf == nil) return;
+                   if (strongSelf.controlsAutoHideGeneration != generation) return;
+                   strongSelf.controlsVisible = NO;
+                   [strongSelf applyControlsHiddenStateAnimated:YES];
+                 });
 }
 
 - (void)togglePlayPause {
@@ -1301,9 +1734,14 @@ void GKPhotoBrowserImpl::dismiss() {
       self.status = GKVideoPlayerStatusPlaying;
       double duration = CMTimeGetSeconds(item.duration);
       self.totalTime = isfinite(duration) ? duration : 0;
-      self.controlsContainer.hidden = NO;
       [self updateTimeLabelsWithCurrentTime:self.currentTime totalTime:self.totalTime];
-      [self applyControlsHiddenState];
+      if (self.browser.configure.isSingleTapDisabled) {
+        [self showControlsAnimated:NO autoHide:YES];
+      } else {
+        self.controlsVisible = YES;
+        self.controlsContainer.alpha = 1.0;
+        [self applyControlsHiddenState];
+      }
       [self installTimeObserver];
 
       if (self.seekTime > 0) {
