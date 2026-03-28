@@ -1,6 +1,5 @@
 import { NitroModules } from 'react-native-nitro-modules'
 import type {
-  BrowserCallbacks,
   BrowserConfig as NativeBrowserConfig,
   BrowserImage,
   BrowserMediaType,
@@ -30,19 +29,3 @@ export type BrowserConfig = Omit<
 
 export const PhotoBrowser =
   NitroModules.createHybridObject<GKPhotoBrowser>('GKPhotoBrowser')
-
-export function showPhotoBrowser(
-  config: BrowserConfig,
-  callbacks?: BrowserCallbacks
-): void {
-  PhotoBrowser.show(
-    config as NativeBrowserConfig,
-    callbacks?.onDismiss ?? (() => {}),
-    callbacks?.onDownload ?? (() => {}),
-    callbacks?.onForward ?? (() => {})
-  )
-}
-
-export function dismissPhotoBrowser(): void {
-  PhotoBrowser.dismiss()
-}

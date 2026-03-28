@@ -1,0 +1,5 @@
+"photo_browser_downloading" = "下載中...";
+"photo_browser_download_completed" = "下載完成";
+"photo_browser_save_failed" = "儲存失敗";
+"photo_browser_save_permission" = "需要相簿權限才能儲存";
+"photo_browser_load_failed" = "載入失敗";

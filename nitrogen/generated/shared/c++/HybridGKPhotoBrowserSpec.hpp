@@ -15,9 +15,12 @@
 
 // Forward declaration of `BrowserConfig` to properly resolve imports.
 namespace margelo::nitro::gkphotobrowser { struct BrowserConfig; }
+// Forward declaration of `BrowserCallbacks` to properly resolve imports.
+namespace margelo::nitro::gkphotobrowser { struct BrowserCallbacks; }
 
 #include "BrowserConfig.hpp"
-#include <functional>
+#include "BrowserCallbacks.hpp"
+#include <optional>
 
 namespace margelo::nitro::gkphotobrowser {
 
@@ -50,7 +53,7 @@ namespace margelo::nitro::gkphotobrowser {
 
     public:
       // Methods
-      virtual void show(const BrowserConfig& config, const std::function<void()>& onDismiss, const std::function<void(double /* index */)>& onDownload, const std::function<void(double /* index */)>& onForward) = 0;
+      virtual void show(const BrowserConfig& config, const std::optional<BrowserCallbacks>& callbacks) = 0;
       virtual void dismiss() = 0;
 
     protected:
