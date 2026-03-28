@@ -16,6 +16,9 @@ Pod::Spec.new do |s|
     'ios/**/*.{h,m,mm}',
     'cpp/**/*.{h,hpp,c,cpp,mm}'
   ]
+  s.resource_bundles = {
+    'NitroGkPhotoBrowserResources' => ['ios/**/*.strings']
+  }
 
   load 'nitrogen/generated/ios/NitroGkPhotoBrowser+autolinking.rb'
   add_nitrogen_files(s)

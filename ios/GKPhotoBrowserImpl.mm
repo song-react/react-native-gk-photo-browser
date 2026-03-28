@@ -2,6 +2,9 @@
 #import <Foundation/Foundation.h>
 #import <GKPhotoBrowser/GKPhotoBrowser.h>
 #import <Photos/Photos.h>
+#import <QuartzCore/QuartzCore.h>
+#import <SDWebImage/SDImageCache.h>
+#import <SDWebImage/SDWebImageManager.h>
 #import <SDWebImage/SDWebImageDownloader.h>
 #import <UIKit/UIKit.h>
 
@@ -11,9 +14,20 @@ using namespace margelo::nitro::gkphotobrowser;
 
 static NSString *const GKRNPhotoBrowserForwardNotification = @"gkPhotoBrowserForward";
 static const NSTimeInterval GKRNActionControlsAutoHideDelay = 3.0;
-static NSString *const GKRNPhotoBrowserDownloadCompletedText = @"下载完成";
-static NSString *const GKRNPhotoBrowserSaveFailedText = @"保存失败";
-static NSString *const GKRNPhotoBrowserSavePermissionText = @"需要相册权限才能保存";
+
+typedef NS_ENUM(NSUInteger, GKRNLanguage) {
+  GKRNLanguageZhHans,
+  GKRNLanguageZhHant,
+  GKRNLanguageEn,
+};
+
+typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
+  GKRNLocalizedTextKeyDownloading,
+  GKRNLocalizedTextKeyDownloadCompleted,
+  GKRNLocalizedTextKeySaveFailed,
+  GKRNLocalizedTextKeySavePermission,
+  GKRNLocalizedTextKeyLoadFailed,
+};
 
 template <typename Fn>
 static inline void GKRNRunOnMainSync(Fn &&fn) {
@@ -29,6 +43,106 @@ static inline void GKRNRunOnMainSync(Fn &&fn) {
 static NSString *_Nullable GKRNStringFromOptional(const std::optional<std::string> &value) {
   if (!value.has_value()) return nil;
   return [[NSString alloc] initWithUTF8String:value->c_str()];
+}
+
+static GKRNLanguage GKRNLanguageFromCode(NSString *_Nullable code) {
+  NSString *normalized = [code.lowercaseString stringByReplacingOccurrencesOfString:@"_" withString:@"-"];
+  if (normalized.length == 0) return GKRNLanguageEn;
+  if ([normalized hasPrefix:@"en"]) return GKRNLanguageEn;
+  if ([normalized hasPrefix:@"zh-hant"] || [normalized hasPrefix:@"zh-tw"] ||
+      [normalized hasPrefix:@"zh-hk"] || [normalized hasPrefix:@"zh-mo"]) {
+    return GKRNLanguageZhHant;
+  }
+  if ([normalized hasPrefix:@"zh"]) return GKRNLanguageZhHans;
+  return GKRNLanguageEn;
+}
+
+static GKRNLanguage GKRNResolveLanguage(const std::optional<std::string> &configuredLanguage) {
+  NSString *configured = GKRNStringFromOptional(configuredLanguage);
+  if (configured.length > 0 && ![[configured lowercaseString] isEqualToString:@"system"]) {
+    return GKRNLanguageFromCode(configured);
+  }
+
+  NSString *preferred = NSLocale.preferredLanguages.firstObject;
+  return GKRNLanguageFromCode(preferred);
+}
+
+static NSString *GKRNLocalizationIdentifier(GKRNLanguage language) {
+  switch (language) {
+    case GKRNLanguageZhHant:
+      return @"zh-Hant";
+    case GKRNLanguageEn:
+      return @"en";
+    case GKRNLanguageZhHans:
+    default:
+      return @"zh-Hans";
+  }
+}
+
+static NSBundle *GKRNLocalizationResourceBundle(void) {
+  static NSBundle *resourceBundle = nil;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    NSBundle *mainBundle = NSBundle.mainBundle;
+    NSURL *resourceURL = [mainBundle URLForResource:@"NitroGkPhotoBrowserResources" withExtension:@"bundle"];
+    if (resourceURL == nil) {
+      NSBundle *hostBundle = [NSBundle bundleForClass:GKPhotoBrowser.class];
+      resourceURL = [hostBundle URLForResource:@"NitroGkPhotoBrowserResources" withExtension:@"bundle"];
+    }
+    resourceBundle = resourceURL != nil ? [NSBundle bundleWithURL:resourceURL] : mainBundle;
+  });
+  return resourceBundle;
+}
+
+static NSBundle *GKRNLocalizationBundleForLanguage(GKRNLanguage language) {
+  NSBundle *resourceBundle = GKRNLocalizationResourceBundle();
+  NSString *identifier = GKRNLocalizationIdentifier(language);
+  NSString *bundlePath = [resourceBundle pathForResource:identifier ofType:@"lproj"];
+  if (bundlePath.length == 0) return resourceBundle;
+  NSBundle *languageBundle = [NSBundle bundleWithPath:bundlePath];
+  return languageBundle ?: resourceBundle;
+}
+
+static NSString *GKRNLocalizedText(GKRNLanguage language, GKRNLocalizedTextKey key) {
+  NSString *textKey = nil;
+  NSString *fallback = nil;
+
+  switch (key) {
+    case GKRNLocalizedTextKeyDownloading:
+      textKey = @"photo_browser_downloading";
+      fallback = @"Downloading...";
+      break;
+    case GKRNLocalizedTextKeyDownloadCompleted:
+      textKey = @"photo_browser_download_completed";
+      fallback = @"Saved";
+      break;
+    case GKRNLocalizedTextKeySaveFailed:
+      textKey = @"photo_browser_save_failed";
+      fallback = @"Save failed";
+      break;
+    case GKRNLocalizedTextKeySavePermission:
+      textKey = @"photo_browser_save_permission";
+      fallback = @"Photo library permission is required";
+      break;
+    case GKRNLocalizedTextKeyLoadFailed:
+      textKey = @"photo_browser_load_failed";
+      fallback = @"Load failed";
+      break;
+  }
+
+  NSBundle *bundle = GKRNLocalizationBundleForLanguage(language);
+  NSString *localized = [bundle localizedStringForKey:textKey value:nil table:nil];
+  if (localized.length > 0 && ![localized isEqualToString:textKey]) return localized;
+
+  NSString *enPath = [GKRNLocalizationResourceBundle() pathForResource:@"en" ofType:@"lproj"];
+  if (enPath.length > 0) {
+    NSBundle *enBundle = [NSBundle bundleWithPath:enPath];
+    NSString *enText = [enBundle localizedStringForKey:textKey value:nil table:nil];
+    if (enText.length > 0 && ![enText isEqualToString:textKey]) return enText;
+  }
+
+  if (fallback.length == 0) return textKey;
+  return fallback;
 }
 
 static NSURL *_Nullable GKRNMakeURL(NSString *value) {
@@ -112,6 +226,22 @@ static UIViewController *_Nullable GKRNCurrentTopViewController(void) {
   return GKRNTopViewController(keyWindow.rootViewController);
 }
 
+static UIImage *_Nullable GKRNSnapshotImageInRect(CGRect rect) {
+  if (rect.size.width <= 0 || rect.size.height <= 0) return nil;
+  UIViewController *topVC = GKRNCurrentTopViewController();
+  UIView *sourceView = topVC.view.window ?: topVC.view;
+  if (sourceView == nil) return nil;
+
+  UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+  format.opaque = NO;
+  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:rect.size format:format];
+  return [renderer imageWithActions:^(UIGraphicsImageRendererContext *_Nonnull context) {
+    CGContextRef ctx = context.CGContext;
+    CGContextTranslateCTM(ctx, -rect.origin.x, -rect.origin.y);
+    [sourceView.layer renderInContext:ctx];
+  }];
+}
+
 static NSDictionary<NSString *, NSString *> *_Nullable GKRNHeadersFromPhoto(GKPhoto *_Nullable photo) {
   if (photo == nil || ![photo.extraInfo isKindOfClass:NSDictionary.class]) return nil;
   NSDictionary *info = (NSDictionary *)photo.extraInfo;
@@ -120,47 +250,122 @@ static NSDictionary<NSString *, NSString *> *_Nullable GKRNHeadersFromPhoto(GKPh
   return (NSDictionary<NSString *, NSString *> *)headers;
 }
 
+static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
+  if (url == nil || url.isFileURL) return nil;
+  NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:url];
+  if (key.length == 0) return nil;
+  UIImage *memoryImage = [[SDImageCache sharedImageCache] imageFromMemoryCacheForKey:key];
+  if (memoryImage != nil) return memoryImage;
+  return [[SDImageCache sharedImageCache] imageFromDiskCacheForKey:key];
+}
+
 static void GKRNShowToast(UIView *_Nullable hostView, NSString *message) {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIView *container = hostView.window ?: hostView ?: GKRNCurrentTopViewController().view.window;
     if (container == nil || message.length == 0) return;
 
+    UIView *overlay = [UIView new];
+    overlay.frame = container.bounds;
+    overlay.backgroundColor = UIColor.clearColor;
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.userInteractionEnabled = NO;
+    overlay.alpha = 0;
+
+    UIView *panel = [UIView new];
+    panel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.68];
+    panel.layer.cornerRadius = 12;
+    panel.clipsToBounds = YES;
+
     UILabel *label = [UILabel new];
     label.text = message;
     label.textColor = UIColor.whiteColor;
-    label.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
-    label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     label.textAlignment = NSTextAlignmentCenter;
     label.numberOfLines = 0;
-    label.layer.cornerRadius = 10;
-    label.clipsToBounds = YES;
-    label.alpha = 0;
 
-    CGSize maxSize = CGSizeMake(CGRectGetWidth(container.bounds) - 64.0, CGFLOAT_MAX);
-    CGSize textSize = [label sizeThatFits:maxSize];
-    CGFloat width = MIN(maxSize.width, textSize.width + 28.0);
-    CGFloat height = textSize.height + 18.0;
-    label.frame = CGRectMake((CGRectGetWidth(container.bounds) - width) * 0.5,
-                             CGRectGetHeight(container.bounds) * 0.28,
-                             width,
-                             height);
+    CGSize maxTextSize = CGSizeMake(220, CGFLOAT_MAX);
+    CGSize textSize = [label sizeThatFits:maxTextSize];
+    CGFloat panelWidth = MAX(108, MIN(260, textSize.width + 28));
+    CGFloat panelHeight = MAX(54, textSize.height + 22);
+    panel.frame = CGRectMake((CGRectGetWidth(overlay.bounds) - panelWidth) * 0.5,
+                             (CGRectGetHeight(overlay.bounds) - panelHeight) * 0.5,
+                             panelWidth,
+                             panelHeight);
+    label.frame = CGRectMake(14,
+                             (panelHeight - textSize.height) * 0.5,
+                             panelWidth - 28,
+                             textSize.height);
 
-    [container addSubview:label];
+    [panel addSubview:label];
+    [overlay addSubview:panel];
+    [container addSubview:overlay];
     [UIView animateWithDuration:0.18
                      animations:^{
-                       label.alpha = 1.0;
+                       overlay.alpha = 1.0;
                      }
                      completion:^(BOOL finished) {
                        [UIView animateWithDuration:0.2
                                              delay:1.0
                                            options:UIViewAnimationOptionCurveEaseInOut
                                         animations:^{
-                                          label.alpha = 0.0;
+                                          overlay.alpha = 0.0;
                                         }
                                         completion:^(BOOL finished) {
-                                          [label removeFromSuperview];
+                                          [overlay removeFromSuperview];
                                         }];
                      }];
+  });
+}
+
+static UIView *_Nullable GKRNShowLoading(UIView *_Nullable hostView, NSString *message) {
+  __block UIView *overlay = nil;
+  GKRNRunOnMainSync(^{
+    UIView *container = hostView.window ?: hostView ?: GKRNCurrentTopViewController().view.window;
+    if (container == nil) return;
+
+    overlay = [UIView new];
+    overlay.frame = container.bounds;
+    overlay.backgroundColor = UIColor.clearColor;
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.userInteractionEnabled = YES;
+
+    UIView *panel = [UIView new];
+    panel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.68];
+    panel.layer.cornerRadius = 12;
+    panel.clipsToBounds = YES;
+
+    UIActivityIndicatorView *indicator = nil;
+    if (@available(iOS 13.0, *)) {
+      indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    } else {
+      indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+    }
+    indicator.color = UIColor.whiteColor;
+    [indicator startAnimating];
+
+    UILabel *label = [UILabel new];
+    label.text = message.length > 0 ? message : @"...";
+    label.textColor = UIColor.whiteColor;
+    label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    label.textAlignment = NSTextAlignmentCenter;
+
+    panel.frame = CGRectMake(0, 0, 108, 92);
+    panel.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
+    indicator.center = CGPointMake(CGRectGetMidX(panel.bounds), 34);
+    label.frame = CGRectMake(8, 56, CGRectGetWidth(panel.bounds) - 16, 20);
+
+    [panel addSubview:indicator];
+    [panel addSubview:label];
+    [overlay addSubview:panel];
+    [container addSubview:overlay];
+  });
+  return overlay;
+}
+
+static void GKRNHideLoading(UIView *_Nullable loadingView) {
+  if (loadingView == nil) return;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [loadingView removeFromSuperview];
   });
 }
 
@@ -184,38 +389,54 @@ static void GKRNRequestPhotoLibraryAddAccess(void (^completion)(BOOL granted)) {
   }
 }
 
-static void GKRNSavePhotoLibraryChange(UIView *_Nullable hostView, void (^changes)(void)) {
+static void GKRNSavePhotoLibraryChange(UIView *_Nullable hostView,
+                                       void (^changes)(void),
+                                       void (^_Nullable completion)(void),
+                                       GKRNLanguage language) {
   GKRNRequestPhotoLibraryAddAccess(^(BOOL granted) {
     if (!granted) {
-      GKRNShowToast(hostView, GKRNPhotoBrowserSavePermissionText);
+      GKRNShowToast(hostView, GKRNLocalizedText(language, GKRNLocalizedTextKeySavePermission));
+      if (completion != nil) completion();
       return;
     }
 
     [[PHPhotoLibrary sharedPhotoLibrary] performChanges:changes
                                       completionHandler:^(BOOL success, NSError *_Nullable error) {
                                         if (success && error == nil) {
-                                          GKRNShowToast(hostView, GKRNPhotoBrowserDownloadCompletedText);
+                                          GKRNShowToast(hostView, GKRNLocalizedText(language, GKRNLocalizedTextKeyDownloadCompleted));
                                         } else {
-                                          GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+                                          GKRNShowToast(hostView, GKRNLocalizedText(language, GKRNLocalizedTextKeySaveFailed));
+                                        }
+                                        if (completion != nil) {
+                                          dispatch_async(dispatch_get_main_queue(), ^{
+                                            completion();
+                                          });
                                         }
                                       }];
   });
 }
 
-static void GKRNSaveImageToPhotoLibrary(UIView *_Nullable hostView, UIImage *image) {
+static void GKRNSaveImageToPhotoLibrary(UIView *_Nullable hostView,
+                                        UIImage *image,
+                                        void (^_Nullable completion)(void),
+                                        GKRNLanguage language) {
   GKRNSavePhotoLibraryChange(hostView, ^{
     [PHAssetCreationRequest creationRequestForAssetFromImage:image];
-  });
+  }, completion, language);
 }
 
-static void GKRNSaveFileURLToPhotoLibrary(UIView *_Nullable hostView, NSURL *fileURL, BOOL isVideo) {
+static void GKRNSaveFileURLToPhotoLibrary(UIView *_Nullable hostView,
+                                          NSURL *fileURL,
+                                          BOOL isVideo,
+                                          void (^_Nullable completion)(void),
+                                          GKRNLanguage language) {
   GKRNSavePhotoLibraryChange(hostView, ^{
     if (isVideo) {
       [PHAssetCreationRequest creationRequestForAssetFromVideoAtFileURL:fileURL];
     } else {
       [PHAssetCreationRequest creationRequestForAssetFromImageAtFileURL:fileURL];
     }
-  });
+  }, completion, language);
 }
 
 static void GKRNDownloadURLToTemporaryFile(NSURL *url,
@@ -347,10 +568,7 @@ class GKPhotoBrowserRuntime {
   GKPhotoBrowserRuntime();
   ~GKPhotoBrowserRuntime();
 
-  void show(const BrowserConfig &config,
-            const std::function<void()> &onDismiss,
-            const std::function<void(double)> &onDownload,
-            const std::function<void(double)> &onForward);
+  void show(const BrowserConfig &config, const std::optional<BrowserCallbacks> &callbacks);
   void dismiss();
 
   void handleDownload(NSInteger index);
@@ -363,11 +581,9 @@ class GKPhotoBrowserRuntime {
   void handleDismissWillStart();
 
  private:
-  void showOnMain(const BrowserConfig &config,
-                  const std::function<void()> &onDismiss,
-                  const std::function<void(double)> &onDownload,
-                  const std::function<void(double)> &onForward);
+  void showOnMain(const BrowserConfig &config, const std::optional<BrowserCallbacks> &callbacks);
   void dismissOnMain();
+  void clearSourceImagePlaceholders();
   GKPhoto *_Nullable makePhoto(const BrowserImage &image);
   void installImageHeaders(const std::vector<BrowserImage> &images);
   bool shouldAutoLoadOriginAtIndex(NSInteger index) const;
@@ -383,10 +599,12 @@ class GKPhotoBrowserRuntime {
   __strong id forwardObserver_ = nil;
   __strong GKRNPhotoBrowserCover *cover_ = nil;
   __strong GKRNAVPlayerManager *playerManager_ = nil;
+  __strong NSMutableArray<UIView *> *sourceImagePlaceholders_ = nil;
   std::vector<BrowserImage> images_;
   std::function<void()> onDismissCallback_;
   std::function<void(double)> onDownloadCallback_;
   std::function<void(double)> onForwardCallback_;
+  GKRNLanguage language_ = GKRNLanguageZhHans;
   bool shouldNotifyDismiss_ = true;
 };
 } // namespace margelo::nitro::gkphotobrowser
@@ -444,12 +662,15 @@ namespace margelo::nitro::gkphotobrowser {
 GKPhotoBrowserRuntime::GKPhotoBrowserRuntime() {
   delegateProxy_ = [GKPhotoBrowserDelegateProxy new];
   delegateProxy_.owner = this;
+  sourceImagePlaceholders_ = [NSMutableArray new];
+  language_ = GKRNResolveLanguage(std::nullopt);
 }
 
 GKPhotoBrowserRuntime::~GKPhotoBrowserRuntime() {
   GKRNRunOnMainSync([this] {
     delegateProxy_.owner = nullptr;
     removeForwardObserver();
+    clearSourceImagePlaceholders();
     browser_ = nil;
     cover_ = nil;
     playerManager_ = nil;
@@ -460,16 +681,12 @@ GKPhotoBrowserRuntime::~GKPhotoBrowserRuntime() {
 }
 
 void GKPhotoBrowserRuntime::show(const BrowserConfig &config,
-                                 const std::function<void()> &onDismiss,
-                                 const std::function<void(double)> &onDownload,
-                                 const std::function<void(double)> &onForward) {
+                                 const std::optional<BrowserCallbacks> &callbacks) {
   BrowserConfig configCopy = config;
-  auto onDismissCopy = onDismiss;
-  auto onDownloadCopy = onDownload;
-  auto onForwardCopy = onForward;
+  auto callbacksCopy = callbacks;
 
-  GKRNRunOnMainSync([this, configCopy, onDismissCopy, onDownloadCopy, onForwardCopy] {
-    showOnMain(configCopy, onDismissCopy, onDownloadCopy, onForwardCopy);
+  GKRNRunOnMainSync([this, configCopy, callbacksCopy] {
+    showOnMain(configCopy, callbacksCopy);
   });
 }
 
@@ -480,13 +697,17 @@ void GKPhotoBrowserRuntime::dismiss() {
 }
 
 void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
-                                       const std::function<void()> &onDismiss,
-                                       const std::function<void(double)> &onDownload,
-                                       const std::function<void(double)> &onForward) {
+                                       const std::optional<BrowserCallbacks> &callbacks) {
+  bool hasDownloadAction = !callbacks.has_value() || callbacks->onDownload.has_value();
+  bool hasForwardAction = callbacks.has_value() && callbacks->onForward.has_value();
   shouldNotifyDismiss_ = true;
-  onDismissCallback_ = onDismiss;
-  onDownloadCallback_ = onDownload;
-  onForwardCallback_ = onForward;
+  onDismissCallback_ =
+      callbacks.has_value() && callbacks->onDismiss.has_value() ? callbacks->onDismiss.value() : [] {};
+  onDownloadCallback_ =
+      callbacks.has_value() && callbacks->onDownload.has_value() ? callbacks->onDownload.value() : [](double) {};
+  onForwardCallback_ =
+      callbacks.has_value() && callbacks->onForward.has_value() ? callbacks->onForward.value() : std::function<void(double)>{};
+  language_ = GKRNResolveLanguage(std::nullopt);
   images_ = config.images;
 
   if (browser_ != nil) {
@@ -495,6 +716,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
     shouldNotifyDismiss_ = true;
     browser_ = nil;
   }
+  clearSourceImagePlaceholders();
 
   NSMutableArray<GKPhoto *> *photos = [NSMutableArray arrayWithCapacity:config.images.size()];
   for (const BrowserImage &image : config.images) {
@@ -526,9 +748,10 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   configure.originLoadStyle = mapLoadStyle(config.originLoadStyle);
   configure.maxZoomScale = (CGFloat)config.maxZoomScale.value_or(20);
   configure.doubleZoomScale = (CGFloat)config.doubleZoomScale.value_or(2);
+  configure.failureText = GKRNLocalizedText(language_, GKRNLocalizedTextKeyLoadFailed);
   configure.hidesCountLabel = config.hidesCountLabel.value_or(true);
-  configure.hidesPageControl = !config.showsPageControl.value_or(true);
-  configure.hidesSavedBtn = !config.showDownloadButton.value_or(false);
+  configure.hidesPageControl = config.hidesPageControl.value_or(false);
+  configure.hidesSavedBtn = !hasDownloadAction;
   configure.isAdaptiveSafeArea = config.isAdaptiveSafeArea.value_or(false);
   configure.isFollowSystemRotation = config.isFollowSystemRotation.value_or(false);
   configure.isSingleTapDisabled = config.isSingleTapDisabled.value_or(false);
@@ -538,9 +761,9 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   playerManager_ = playerManager;
 
   GKRNPhotoBrowserCover *cover = [GKRNPhotoBrowserCover new];
-  cover.showCloseButton = config.showCloseButton.value_or(true);
-  cover.showDownloadButton = config.showDownloadButton.value_or(false);
-  cover.showForwardButton = config.showForwardButton.value_or(false);
+  cover.showCloseButton = YES;
+  cover.showDownloadButton = hasDownloadAction;
+  cover.showForwardButton = hasForwardAction;
   [configure setupCoverProtocol:cover];
   cover_ = cover;
 
@@ -556,16 +779,27 @@ void GKPhotoBrowserRuntime::dismissOnMain() {
   [cover_ setActionButtonsHiddenByDismiss:YES];
   [playerManager_ setControlsHiddenByDismiss:YES];
   [browser_ dismiss];
+  clearSourceImagePlaceholders();
   browser_ = nil;
   cover_ = nil;
   playerManager_ = nil;
   images_.clear();
 }
 
+void GKPhotoBrowserRuntime::clearSourceImagePlaceholders() {
+  if (sourceImagePlaceholders_.count == 0) return;
+  for (UIView *view in sourceImagePlaceholders_) {
+    [view removeFromSuperview];
+  }
+  [sourceImagePlaceholders_ removeAllObjects];
+}
+
 GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
   GKPhoto *photo = [GKPhoto new];
   NSURL *videoURL = nil;
   NSDictionary<NSString *, NSString *> *headers = nil;
+  UIImageView *sourceImageView = nil;
+  UIImage *sourceSnapshotImage = nil;
 
   NSString *videoUri = GKRNStringFromOptional(image.videoUri);
   if (videoUri.length > 0) {
@@ -579,12 +813,26 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
 
   if (image.sourceFrame.has_value()) {
     const BrowserRect &source = image.sourceFrame.value();
-    photo.sourceFrame = CGRectMake(source.x, source.y, source.width, source.height);
-    // GKPhotoBrowser's dismiss animation requires sourceImageView to exist even
-    // when a concrete sourceFrame is provided. Use a detached placeholder view
-    // so hideStyle can still animate back to sourceFrame.
-    UIImageView *sourceImageView = [UIImageView new];
+    CGRect sourceFrame = CGRectMake(source.x, source.y, source.width, source.height);
+    if (source.width > 0 && source.height > 0) {
+      photo.sourceFrame = sourceFrame;
+    }
+    // Keep a nearly-transparent placeholder view in the view tree so
+    // GKPhotoBrowser can resolve zoom source on first presentation and dismiss.
+    sourceImageView = [UIImageView new];
+    sourceImageView.frame = source.width > 0 && source.height > 0 ? sourceFrame : CGRectMake(source.x, source.y, 1, 1);
+    sourceSnapshotImage = GKRNSnapshotImageInRect(sourceFrame);
+    sourceImageView.hidden = NO;
+    sourceImageView.alpha = 0.001;
+    sourceImageView.userInteractionEnabled = NO;
+    sourceImageView.clipsToBounds = YES;
     sourceImageView.contentMode = UIViewContentModeScaleAspectFill;
+    UIViewController *topVC = GKRNCurrentTopViewController();
+    if (topVC.view != nil) {
+      [topVC.view addSubview:sourceImageView];
+      [topVC.view sendSubviewToBack:sourceImageView];
+      [sourceImagePlaceholders_ addObject:sourceImageView];
+    }
     photo.sourceImageView = sourceImageView;
   }
 
@@ -594,6 +842,9 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
     if (placeholder != nil) {
       photo.placeholderImage = placeholder;
     }
+  }
+  if (photo.placeholderImage == nil && sourceSnapshotImage != nil) {
+    photo.placeholderImage = sourceSnapshotImage;
   }
 
   NSString *localPath = GKRNStringFromOptional(image.localPath);
@@ -614,9 +865,17 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
           }
         } else {
           photo.url = url;
+          UIImage *cachedImage = GKRNImageFromSDCache(url);
+          if (cachedImage != nil) {
+            photo.image = cachedImage;
+          }
         }
       }
     }
+  }
+
+  if (sourceImageView != nil) {
+    sourceImageView.image = photo.image;
   }
 
   NSString *originUri = GKRNStringFromOptional(image.originUri);
@@ -720,24 +979,32 @@ GKPhotoBrowserLoadStyle GKPhotoBrowserRuntime::mapLoadStyle(const std::optional<
 
 void GKPhotoBrowserRuntime::handleDownload(NSInteger index) {
   if (browser_ == nil) return;
+  if (onDownloadCallback_) {
+    onDownloadCallback_((double)index);
+  }
 
   GKPhoto *photo = browser_.curPhoto;
   UIView *hostView = browser_.view;
   NSDictionary<NSString *, NSString *> *headers = GKRNHeadersFromPhoto(photo);
+  UIView *loadingView = GKRNShowLoading(hostView, GKRNLocalizedText(language_, GKRNLocalizedTextKeyDownloading));
 
   if (photo.isVideo) {
     NSURL *videoURL = photo.videoUrl;
     if (videoURL == nil) {
-      GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+      GKRNHideLoading(loadingView);
+      GKRNShowToast(hostView, GKRNLocalizedText(language_, GKRNLocalizedTextKeySaveFailed));
       return;
     }
 
     GKRNDownloadURLToTemporaryFile(videoURL, headers, @"mp4", ^(NSURL *_Nullable localURL) {
       if (localURL == nil) {
-        GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+        GKRNHideLoading(loadingView);
+        GKRNShowToast(hostView, GKRNLocalizedText(language_, GKRNLocalizedTextKeySaveFailed));
         return;
       }
-      GKRNSaveFileURLToPhotoLibrary(hostView, localURL, YES);
+      GKRNSaveFileURLToPhotoLibrary(hostView, localURL, YES, ^{
+        GKRNHideLoading(loadingView);
+      }, language_);
     });
     return;
   }
@@ -746,21 +1013,27 @@ void GKPhotoBrowserRuntime::handleDownload(NSInteger index) {
   if (imageURL != nil) {
     GKRNDownloadURLToTemporaryFile(imageURL, headers, @"jpg", ^(NSURL *_Nullable localURL) {
       if (localURL == nil) {
-        GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+        GKRNHideLoading(loadingView);
+        GKRNShowToast(hostView, GKRNLocalizedText(language_, GKRNLocalizedTextKeySaveFailed));
         return;
       }
-      GKRNSaveFileURLToPhotoLibrary(hostView, localURL, NO);
+      GKRNSaveFileURLToPhotoLibrary(hostView, localURL, NO, ^{
+        GKRNHideLoading(loadingView);
+      }, language_);
     });
     return;
   }
 
   UIImage *image = browser_.curPhotoView.imageView.image ?: photo.image;
   if (image != nil) {
-    GKRNSaveImageToPhotoLibrary(hostView, image);
+    GKRNSaveImageToPhotoLibrary(hostView, image, ^{
+      GKRNHideLoading(loadingView);
+    }, language_);
     return;
   }
 
-  GKRNShowToast(hostView, GKRNPhotoBrowserSaveFailedText);
+  GKRNHideLoading(loadingView);
+  GKRNShowToast(hostView, GKRNLocalizedText(language_, GKRNLocalizedTextKeySaveFailed));
 }
 
 void GKPhotoBrowserRuntime::handleForward(NSInteger index) {
@@ -771,6 +1044,7 @@ void GKPhotoBrowserRuntime::handleForward(NSInteger index) {
 
 void GKPhotoBrowserRuntime::handleDidDisappear() {
   removeForwardObserver();
+  clearSourceImagePlaceholders();
   browser_ = nil;
   cover_ = nil;
   playerManager_ = nil;
@@ -838,10 +1112,8 @@ GKPhotoBrowserImpl::GKPhotoBrowserImpl()
 GKPhotoBrowserImpl::~GKPhotoBrowserImpl() = default;
 
 void GKPhotoBrowserImpl::show(const BrowserConfig &config,
-                              const std::function<void()> &onDismiss,
-                              const std::function<void(double)> &onDownload,
-                              const std::function<void(double)> &onForward) {
-  runtime_->show(config, onDismiss, onDownload, onForward);
+                              const std::optional<BrowserCallbacks> &callbacks) {
+  runtime_->show(config, callbacks);
 }
 
 void GKPhotoBrowserImpl::dismiss() {
@@ -889,6 +1161,12 @@ void GKPhotoBrowserImpl::dismiss() {
     _closeButton = [self makeButtonWithSystemName:@"xmark"];
     _downloadButton = [self makeButtonWithSystemName:@"arrow.down.to.line"];
     _forwardButton = [self makeButtonWithSystemName:@"arrowshape.turn.up.right.fill"];
+    _closeButton.hidden = YES;
+    _downloadButton.hidden = YES;
+    _forwardButton.hidden = YES;
+    _closeButton.alpha = 0;
+    _downloadButton.alpha = 0;
+    _forwardButton.alpha = 0;
   }
   return self;
 }
@@ -907,6 +1185,7 @@ void GKPhotoBrowserImpl::dismiss() {
   [_forwardButton addTarget:self action:@selector(onForward) forControlEvents:UIControlEventTouchUpInside];
 
   _pageControl.numberOfPages = self.browser.photos.count;
+  [self applyActionButtonsHiddenState];
 }
 
 - (void)updateLayoutWithFrame:(CGRect)frame {
@@ -916,10 +1195,15 @@ void GKPhotoBrowserImpl::dismiss() {
   const CGFloat buttonGap = 20.0;
   UIEdgeInsets safeInsets = [self resolvedSafeAreaInsets];
   CGFloat topY = safeInsets.top + topOffset;
+  CGFloat rightX = CGRectGetWidth(frame) - horizontalInset - buttonSize;
 
   _closeButton.frame = CGRectMake(horizontalInset, topY, buttonSize, buttonSize);
-  _forwardButton.frame = CGRectMake(CGRectGetWidth(frame) - horizontalInset - buttonSize, topY, buttonSize, buttonSize);
-  _downloadButton.frame = CGRectMake(CGRectGetMinX(_forwardButton.frame) - buttonGap - buttonSize, topY, buttonSize, buttonSize);
+  _forwardButton.frame = CGRectMake(rightX, topY, buttonSize, buttonSize);
+  if (self.showForwardButton) {
+    _downloadButton.frame = CGRectMake(rightX - buttonGap - buttonSize, topY, buttonSize, buttonSize);
+  } else {
+    _downloadButton.frame = CGRectMake(rightX, topY, buttonSize, buttonSize);
+  }
 
   _countLabel.center = CGPointMake(CGRectGetWidth(frame) * 0.5, topY + buttonSize * 0.5);
 

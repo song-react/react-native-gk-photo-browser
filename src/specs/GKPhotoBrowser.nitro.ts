@@ -31,12 +31,9 @@ export interface BrowserConfig {
   maxZoomScale?: number
   doubleZoomScale?: number
   hidesCountLabel?: boolean
-  showsPageControl?: boolean
+  hidesPageControl?: boolean
   isAdaptiveSafeArea?: boolean
   isFollowSystemRotation?: boolean
-  showCloseButton?: boolean
-  showDownloadButton?: boolean
-  showForwardButton?: boolean
   isSingleTapDisabled?: boolean
 }
 
@@ -47,11 +44,6 @@ export interface BrowserCallbacks {
 }
 
 export interface GKPhotoBrowser extends HybridObject<{ ios: 'c++' }> {
-  show(
-    config: BrowserConfig,
-    onDismiss: () => void,
-    onDownload: (index: number) => void,
-    onForward: (index: number) => void
-  ): void
+  show(config: BrowserConfig, callbacks?: BrowserCallbacks): void
   dismiss(): void
 }

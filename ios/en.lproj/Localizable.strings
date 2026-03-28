@@ -1,0 +1,5 @@
+"photo_browser_downloading" = "Downloading...";
+"photo_browser_download_completed" = "Saved";
+"photo_browser_save_failed" = "Save failed";
+"photo_browser_save_permission" = "Photo library permission is required";
+"photo_browser_load_failed" = "Load failed";

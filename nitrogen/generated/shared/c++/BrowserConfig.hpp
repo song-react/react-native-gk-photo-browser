@@ -52,17 +52,14 @@ namespace margelo::nitro::gkphotobrowser {
     std::optional<double> maxZoomScale     SWIFT_PRIVATE;
     std::optional<double> doubleZoomScale     SWIFT_PRIVATE;
     std::optional<bool> hidesCountLabel     SWIFT_PRIVATE;
-    std::optional<bool> showsPageControl     SWIFT_PRIVATE;
+    std::optional<bool> hidesPageControl     SWIFT_PRIVATE;
     std::optional<bool> isAdaptiveSafeArea     SWIFT_PRIVATE;
     std::optional<bool> isFollowSystemRotation     SWIFT_PRIVATE;
-    std::optional<bool> showCloseButton     SWIFT_PRIVATE;
-    std::optional<bool> showDownloadButton     SWIFT_PRIVATE;
-    std::optional<bool> showForwardButton     SWIFT_PRIVATE;
     std::optional<bool> isSingleTapDisabled     SWIFT_PRIVATE;
 
   public:
     BrowserConfig() = default;
-    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesCountLabel, std::optional<bool> showsPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> showCloseButton, std::optional<bool> showDownloadButton, std::optional<bool> showForwardButton, std::optional<bool> isSingleTapDisabled): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesCountLabel(hidesCountLabel), showsPageControl(showsPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), showCloseButton(showCloseButton), showDownloadButton(showDownloadButton), showForwardButton(showForwardButton), isSingleTapDisabled(isSingleTapDisabled) {}
+    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesCountLabel, std::optional<bool> hidesPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> isSingleTapDisabled): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesCountLabel(hidesCountLabel), hidesPageControl(hidesPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), isSingleTapDisabled(isSingleTapDisabled) {}
 
   public:
     friend bool operator==(const BrowserConfig& lhs, const BrowserConfig& rhs) = default;
@@ -87,12 +84,9 @@ namespace margelo::nitro {
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showsPageControl"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showCloseButton"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showDownloadButton"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled")))
       );
     }
@@ -107,12 +101,9 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.maxZoomScale));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.doubleZoomScale));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesCountLabel));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "showsPageControl"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showsPageControl));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesPageControl));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isAdaptiveSafeArea));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isFollowSystemRotation));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "showCloseButton"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showCloseButton));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "showDownloadButton"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showDownloadButton));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.showForwardButton));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isSingleTapDisabled));
       return obj;
     }
@@ -133,12 +124,9 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel")))) return false;
-      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showsPageControl")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation")))) return false;
-      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showCloseButton")))) return false;
-      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showDownloadButton")))) return false;
-      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "showForwardButton")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled")))) return false;
       return true;
     }

@@ -14,9 +14,7 @@ class GKPhotoBrowserImpl final : public HybridGKPhotoBrowserSpec {
 
   void show(
       const BrowserConfig& config,
-      const std::function<void()>& onDismiss,
-      const std::function<void(double)>& onDownload,
-      const std::function<void(double)>& onForward) override;
+      const std::optional<BrowserCallbacks>& callbacks) override;
 
   void dismiss() override;
 
