@@ -51,7 +51,6 @@ namespace margelo::nitro::gkphotobrowser {
     std::optional<std::string> originLoadStyle     SWIFT_PRIVATE;
     std::optional<double> maxZoomScale     SWIFT_PRIVATE;
     std::optional<double> doubleZoomScale     SWIFT_PRIVATE;
-    std::optional<bool> hidesCountLabel     SWIFT_PRIVATE;
     std::optional<bool> hidesPageControl     SWIFT_PRIVATE;
     std::optional<bool> isAdaptiveSafeArea     SWIFT_PRIVATE;
     std::optional<bool> isFollowSystemRotation     SWIFT_PRIVATE;
@@ -59,7 +58,7 @@ namespace margelo::nitro::gkphotobrowser {
 
   public:
     BrowserConfig() = default;
-    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesCountLabel, std::optional<bool> hidesPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> isSingleTapDisabled): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesCountLabel(hidesCountLabel), hidesPageControl(hidesPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), isSingleTapDisabled(isSingleTapDisabled) {}
+    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> isSingleTapDisabled): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesPageControl(hidesPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), isSingleTapDisabled(isSingleTapDisabled) {}
 
   public:
     friend bool operator==(const BrowserConfig& lhs, const BrowserConfig& rhs) = default;
@@ -83,7 +82,6 @@ namespace margelo::nitro {
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "originLoadStyle"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"))),
@@ -100,7 +98,6 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "originLoadStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.originLoadStyle));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.maxZoomScale));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.doubleZoomScale));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesCountLabel));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesPageControl));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isAdaptiveSafeArea));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isFollowSystemRotation));
@@ -123,7 +120,6 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "originLoadStyle")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale")))) return false;
-      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation")))) return false;

@@ -749,7 +749,6 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   configure.maxZoomScale = (CGFloat)config.maxZoomScale.value_or(20);
   configure.doubleZoomScale = (CGFloat)config.doubleZoomScale.value_or(2);
   configure.failureText = GKRNLocalizedText(language_, GKRNLocalizedTextKeyLoadFailed);
-  configure.hidesCountLabel = config.hidesCountLabel.value_or(true);
   configure.hidesPageControl = config.hidesPageControl.value_or(false);
   configure.hidesSavedBtn = !hasDownloadAction;
   configure.isAdaptiveSafeArea = config.isAdaptiveSafeArea.value_or(false);
@@ -1150,6 +1149,8 @@ void GKPhotoBrowserImpl::dismiss() {
     _countLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
     _countLabel.textAlignment = NSTextAlignmentCenter;
     _countLabel.bounds = CGRectMake(0, 0, 96, 30);
+    _countLabel.hidden = YES;
+    _countLabel.alpha = 0;
 
     _pageControl = [UIPageControl new];
     _pageControl.hidesForSinglePage = YES;
@@ -1220,12 +1221,6 @@ void GKPhotoBrowserImpl::dismiss() {
 - (void)updateCoverWithPhoto:(GKPhoto *)photo {
   self.photo = photo;
 
-  if (self.browser.configure.hidesCountLabel) {
-    _countLabel.hidden = YES;
-  } else {
-    _countLabel.hidden = self.browser.photos.count <= 1 || photo.isVideo;
-  }
-
   if (self.browser.configure.hidesPageControl) {
     _pageControl.hidden = YES;
   } else {
@@ -1291,22 +1286,24 @@ void GKPhotoBrowserImpl::dismiss() {
 
 - (void)applyActionButtonsHiddenStateAnimated:(BOOL)animated {
   BOOL shouldShowButtons = !_actionButtonsHiddenByPan && !_actionButtonsHiddenByDismiss && _actionButtonsVisible;
-  [self updateButton:_closeButton shown:shouldShowButtons && self.showCloseButton animated:animated];
-  [self updateButton:_downloadButton shown:shouldShowButtons && self.showDownloadButton animated:animated];
-  [self updateButton:_forwardButton shown:shouldShowButtons && self.showForwardButton animated:animated];
+  BOOL shouldShowCountLabel = shouldShowButtons && self.browser != nil && self.browser.photos.count > 1;
+  [self updateChromeView:_countLabel shown:shouldShowCountLabel animated:animated];
+  [self updateChromeView:_closeButton shown:shouldShowButtons && self.showCloseButton animated:animated];
+  [self updateChromeView:_downloadButton shown:shouldShowButtons && self.showDownloadButton animated:animated];
+  [self updateChromeView:_forwardButton shown:shouldShowButtons && self.showForwardButton animated:animated];
 }
 
-- (void)updateButton:(UIButton *)button shown:(BOOL)shown animated:(BOOL)animated {
+- (void)updateChromeView:(UIView *)view shown:(BOOL)shown animated:(BOOL)animated {
   if (shown) {
-    button.hidden = NO;
+    view.hidden = NO;
   }
 
   void (^changes)(void) = ^{
-    button.alpha = shown ? 1.0 : 0.0;
+    view.alpha = shown ? 1.0 : 0.0;
   };
 
   void (^completion)(BOOL) = ^(BOOL finished) {
-    button.hidden = !shown;
+    view.hidden = !shown;
   };
 
   if (!animated) {

@@ -30,7 +30,6 @@ export interface BrowserConfig {
   originLoadStyle?: string
   maxZoomScale?: number
   doubleZoomScale?: number
-  hidesCountLabel?: boolean
   hidesPageControl?: boolean
   isAdaptiveSafeArea?: boolean
   isFollowSystemRotation?: boolean
