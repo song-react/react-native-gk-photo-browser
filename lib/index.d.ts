@@ -1,4 +1,4 @@
-import type { BrowserCallbacks, BrowserConfig as NativeBrowserConfig, GKPhotoBrowser } from './specs/GKPhotoBrowser.nitro';
+import type { BrowserConfig as NativeBrowserConfig, GKPhotoBrowser } from './specs/GKPhotoBrowser.nitro';
 export type { BrowserCallbacks, BrowserImage, BrowserMediaType, BrowserRect, GKPhotoBrowser } from './specs/GKPhotoBrowser.nitro';
 export type BrowserShowStyle = 'none' | 'zoom' | 'push';
 export type BrowserHideStyle = 'zoom' | 'zoomScale' | 'zoomSlide';
@@ -10,6 +10,4 @@ export type BrowserConfig = Omit<NativeBrowserConfig, 'showStyle' | 'hideStyle' 
     originLoadStyle?: BrowserLoadStyle;
 };
 export declare const PhotoBrowser: GKPhotoBrowser;
-export declare function showPhotoBrowser(config: BrowserConfig, callbacks?: BrowserCallbacks): void;
-export declare function dismissPhotoBrowser(): void;
 //# sourceMappingURL=index.d.ts.map
