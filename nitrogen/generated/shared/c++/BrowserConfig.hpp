@@ -49,16 +49,57 @@ namespace margelo::nitro::gkphotobrowser {
     std::optional<std::string> hideStyle     SWIFT_PRIVATE;
     std::optional<std::string> loadStyle     SWIFT_PRIVATE;
     std::optional<std::string> originLoadStyle     SWIFT_PRIVATE;
+    std::optional<std::string> failStyle     SWIFT_PRIVATE;
+    std::optional<std::string> videoLoadStyle     SWIFT_PRIVATE;
+    std::optional<std::string> videoFailStyle     SWIFT_PRIVATE;
+    std::optional<std::string> liveLoadStyle     SWIFT_PRIVATE;
+    std::optional<std::string> statusBarStyle     SWIFT_PRIVATE;
+    std::optional<std::string> bgColor     SWIFT_PRIVATE;
+    std::optional<std::string> failureText     SWIFT_PRIVATE;
+    std::optional<std::string> videoFailureText     SWIFT_PRIVATE;
     std::optional<double> maxZoomScale     SWIFT_PRIVATE;
     std::optional<double> doubleZoomScale     SWIFT_PRIVATE;
+    std::optional<double> photoViewPadding     SWIFT_PRIVATE;
+    std::optional<double> animDuration     SWIFT_PRIVATE;
+    std::optional<double> scaleDismissProgressThreshold     SWIFT_PRIVATE;
+    std::optional<double> slideDismissDistanceThreshold     SWIFT_PRIVATE;
+    std::optional<double> slideDismissVelocityThreshold     SWIFT_PRIVATE;
     std::optional<bool> hidesPageControl     SWIFT_PRIVATE;
+    std::optional<bool> hidesCountLabel     SWIFT_PRIVATE;
+    std::optional<bool> hidesSavedBtn     SWIFT_PRIVATE;
     std::optional<bool> isAdaptiveSafeArea     SWIFT_PRIVATE;
     std::optional<bool> isFollowSystemRotation     SWIFT_PRIVATE;
+    std::optional<bool> isStatusBarShow     SWIFT_PRIVATE;
+    std::optional<bool> isShowStatusBarWhenPan     SWIFT_PRIVATE;
+    std::optional<bool> isScreenRotateDisabled     SWIFT_PRIVATE;
     std::optional<bool> isSingleTapDisabled     SWIFT_PRIVATE;
+    std::optional<bool> isDoubleTapDisabled     SWIFT_PRIVATE;
+    std::optional<bool> isDoubleTapZoomDisabled     SWIFT_PRIVATE;
+    std::optional<bool> isHideSourceView     SWIFT_PRIVATE;
+    std::optional<bool> isResumePhotoZoom     SWIFT_PRIVATE;
+    std::optional<bool> isFullWidthForLandScape     SWIFT_PRIVATE;
+    std::optional<bool> isUpSlideDismissDisabled     SWIFT_PRIVATE;
+    std::optional<bool> isNeedNavigationController     SWIFT_PRIVATE;
+    std::optional<bool> isPopGestureEnabled     SWIFT_PRIVATE;
+    std::optional<bool> isClearMemoryWhenDisappear     SWIFT_PRIVATE;
+    std::optional<bool> isClearMemoryWhenViewReuse     SWIFT_PRIVATE;
+    std::optional<bool> isShowPlayImage     SWIFT_PRIVATE;
+    std::optional<bool> isVideoMutedPlay     SWIFT_PRIVATE;
+    std::optional<bool> isVideoReplay     SWIFT_PRIVATE;
+    std::optional<bool> isVideoPausedWhenDragged     SWIFT_PRIVATE;
+    std::optional<bool> isVideoPausedWhenScrollBegan     SWIFT_PRIVATE;
+    std::optional<bool> isVideoZoomDisabled     SWIFT_PRIVATE;
+    std::optional<bool> isHideProgressView     SWIFT_PRIVATE;
+    std::optional<bool> isLivePhotoPausedWhenDragged     SWIFT_PRIVATE;
+    std::optional<bool> isLivePhotoPausedWhenScrollBegan     SWIFT_PRIVATE;
+    std::optional<bool> isLivePhotoMutedPlay     SWIFT_PRIVATE;
+    std::optional<bool> isShowLivePhotoMark     SWIFT_PRIVATE;
+    std::optional<bool> isLivePhotoLongPressPlay     SWIFT_PRIVATE;
+    std::optional<bool> isClearMemoryForLivePhoto     SWIFT_PRIVATE;
 
   public:
     BrowserConfig() = default;
-    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<bool> hidesPageControl, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> isSingleTapDisabled): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), hidesPageControl(hidesPageControl), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), isSingleTapDisabled(isSingleTapDisabled) {}
+    explicit BrowserConfig(std::vector<BrowserImage> images, std::optional<double> currentIndex, std::optional<std::string> showStyle, std::optional<std::string> hideStyle, std::optional<std::string> loadStyle, std::optional<std::string> originLoadStyle, std::optional<std::string> failStyle, std::optional<std::string> videoLoadStyle, std::optional<std::string> videoFailStyle, std::optional<std::string> liveLoadStyle, std::optional<std::string> statusBarStyle, std::optional<std::string> bgColor, std::optional<std::string> failureText, std::optional<std::string> videoFailureText, std::optional<double> maxZoomScale, std::optional<double> doubleZoomScale, std::optional<double> photoViewPadding, std::optional<double> animDuration, std::optional<double> scaleDismissProgressThreshold, std::optional<double> slideDismissDistanceThreshold, std::optional<double> slideDismissVelocityThreshold, std::optional<bool> hidesPageControl, std::optional<bool> hidesCountLabel, std::optional<bool> hidesSavedBtn, std::optional<bool> isAdaptiveSafeArea, std::optional<bool> isFollowSystemRotation, std::optional<bool> isStatusBarShow, std::optional<bool> isShowStatusBarWhenPan, std::optional<bool> isScreenRotateDisabled, std::optional<bool> isSingleTapDisabled, std::optional<bool> isDoubleTapDisabled, std::optional<bool> isDoubleTapZoomDisabled, std::optional<bool> isHideSourceView, std::optional<bool> isResumePhotoZoom, std::optional<bool> isFullWidthForLandScape, std::optional<bool> isUpSlideDismissDisabled, std::optional<bool> isNeedNavigationController, std::optional<bool> isPopGestureEnabled, std::optional<bool> isClearMemoryWhenDisappear, std::optional<bool> isClearMemoryWhenViewReuse, std::optional<bool> isShowPlayImage, std::optional<bool> isVideoMutedPlay, std::optional<bool> isVideoReplay, std::optional<bool> isVideoPausedWhenDragged, std::optional<bool> isVideoPausedWhenScrollBegan, std::optional<bool> isVideoZoomDisabled, std::optional<bool> isHideProgressView, std::optional<bool> isLivePhotoPausedWhenDragged, std::optional<bool> isLivePhotoPausedWhenScrollBegan, std::optional<bool> isLivePhotoMutedPlay, std::optional<bool> isShowLivePhotoMark, std::optional<bool> isLivePhotoLongPressPlay, std::optional<bool> isClearMemoryForLivePhoto): images(images), currentIndex(currentIndex), showStyle(showStyle), hideStyle(hideStyle), loadStyle(loadStyle), originLoadStyle(originLoadStyle), failStyle(failStyle), videoLoadStyle(videoLoadStyle), videoFailStyle(videoFailStyle), liveLoadStyle(liveLoadStyle), statusBarStyle(statusBarStyle), bgColor(bgColor), failureText(failureText), videoFailureText(videoFailureText), maxZoomScale(maxZoomScale), doubleZoomScale(doubleZoomScale), photoViewPadding(photoViewPadding), animDuration(animDuration), scaleDismissProgressThreshold(scaleDismissProgressThreshold), slideDismissDistanceThreshold(slideDismissDistanceThreshold), slideDismissVelocityThreshold(slideDismissVelocityThreshold), hidesPageControl(hidesPageControl), hidesCountLabel(hidesCountLabel), hidesSavedBtn(hidesSavedBtn), isAdaptiveSafeArea(isAdaptiveSafeArea), isFollowSystemRotation(isFollowSystemRotation), isStatusBarShow(isStatusBarShow), isShowStatusBarWhenPan(isShowStatusBarWhenPan), isScreenRotateDisabled(isScreenRotateDisabled), isSingleTapDisabled(isSingleTapDisabled), isDoubleTapDisabled(isDoubleTapDisabled), isDoubleTapZoomDisabled(isDoubleTapZoomDisabled), isHideSourceView(isHideSourceView), isResumePhotoZoom(isResumePhotoZoom), isFullWidthForLandScape(isFullWidthForLandScape), isUpSlideDismissDisabled(isUpSlideDismissDisabled), isNeedNavigationController(isNeedNavigationController), isPopGestureEnabled(isPopGestureEnabled), isClearMemoryWhenDisappear(isClearMemoryWhenDisappear), isClearMemoryWhenViewReuse(isClearMemoryWhenViewReuse), isShowPlayImage(isShowPlayImage), isVideoMutedPlay(isVideoMutedPlay), isVideoReplay(isVideoReplay), isVideoPausedWhenDragged(isVideoPausedWhenDragged), isVideoPausedWhenScrollBegan(isVideoPausedWhenScrollBegan), isVideoZoomDisabled(isVideoZoomDisabled), isHideProgressView(isHideProgressView), isLivePhotoPausedWhenDragged(isLivePhotoPausedWhenDragged), isLivePhotoPausedWhenScrollBegan(isLivePhotoPausedWhenScrollBegan), isLivePhotoMutedPlay(isLivePhotoMutedPlay), isShowLivePhotoMark(isShowLivePhotoMark), isLivePhotoLongPressPlay(isLivePhotoLongPressPlay), isClearMemoryForLivePhoto(isClearMemoryForLivePhoto) {}
 
   public:
     friend bool operator==(const BrowserConfig& lhs, const BrowserConfig& rhs) = default;
@@ -80,12 +121,53 @@ namespace margelo::nitro {
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hideStyle"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "loadStyle"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "originLoadStyle"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "failStyle"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "videoLoadStyle"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "videoFailStyle"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "liveLoadStyle"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "statusBarStyle"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "bgColor"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "failureText"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "videoFailureText"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale"))),
         JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "photoViewPadding"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "animDuration"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "scaleDismissProgressThreshold"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "slideDismissDistanceThreshold"))),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "slideDismissVelocityThreshold"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesSavedBtn"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea"))),
         JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"))),
-        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled")))
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isStatusBarShow"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isShowStatusBarWhenPan"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isScreenRotateDisabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDoubleTapDisabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDoubleTapZoomDisabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isHideSourceView"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isResumePhotoZoom"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFullWidthForLandScape"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isUpSlideDismissDisabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isNeedNavigationController"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isPopGestureEnabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryWhenDisappear"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryWhenViewReuse"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isShowPlayImage"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoMutedPlay"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoReplay"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoPausedWhenDragged"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoPausedWhenScrollBegan"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoZoomDisabled"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isHideProgressView"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoPausedWhenDragged"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoPausedWhenScrollBegan"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoMutedPlay"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isShowLivePhotoMark"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoLongPressPlay"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryForLivePhoto")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::gkphotobrowser::BrowserConfig& arg) {
@@ -96,12 +178,53 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "hideStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.hideStyle));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "loadStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.loadStyle));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "originLoadStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.originLoadStyle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "failStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.failStyle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "videoLoadStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.videoLoadStyle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "videoFailStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.videoFailStyle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "liveLoadStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.liveLoadStyle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "statusBarStyle"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.statusBarStyle));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "bgColor"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.bgColor));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "failureText"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.failureText));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "videoFailureText"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.videoFailureText));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.maxZoomScale));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.doubleZoomScale));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "photoViewPadding"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.photoViewPadding));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "animDuration"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.animDuration));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "scaleDismissProgressThreshold"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.scaleDismissProgressThreshold));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "slideDismissDistanceThreshold"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.slideDismissDistanceThreshold));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "slideDismissVelocityThreshold"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.slideDismissVelocityThreshold));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesPageControl));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesCountLabel));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "hidesSavedBtn"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.hidesSavedBtn));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isAdaptiveSafeArea));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isFollowSystemRotation));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isStatusBarShow"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isStatusBarShow));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isShowStatusBarWhenPan"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isShowStatusBarWhenPan));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isScreenRotateDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isScreenRotateDisabled));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isSingleTapDisabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isDoubleTapDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isDoubleTapDisabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isDoubleTapZoomDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isDoubleTapZoomDisabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isHideSourceView"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isHideSourceView));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isResumePhotoZoom"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isResumePhotoZoom));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isFullWidthForLandScape"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isFullWidthForLandScape));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isUpSlideDismissDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isUpSlideDismissDisabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isNeedNavigationController"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isNeedNavigationController));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isPopGestureEnabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isPopGestureEnabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryWhenDisappear"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isClearMemoryWhenDisappear));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryWhenViewReuse"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isClearMemoryWhenViewReuse));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isShowPlayImage"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isShowPlayImage));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isVideoMutedPlay"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isVideoMutedPlay));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isVideoReplay"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isVideoReplay));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isVideoPausedWhenDragged"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isVideoPausedWhenDragged));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isVideoPausedWhenScrollBegan"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isVideoPausedWhenScrollBegan));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isVideoZoomDisabled"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isVideoZoomDisabled));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isHideProgressView"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isHideProgressView));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoPausedWhenDragged"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isLivePhotoPausedWhenDragged));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoPausedWhenScrollBegan"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isLivePhotoPausedWhenScrollBegan));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoMutedPlay"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isLivePhotoMutedPlay));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isShowLivePhotoMark"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isShowLivePhotoMark));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoLongPressPlay"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isLivePhotoLongPressPlay));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryForLivePhoto"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isClearMemoryForLivePhoto));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -118,12 +241,53 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hideStyle")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "loadStyle")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "originLoadStyle")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "failStyle")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "videoLoadStyle")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "videoFailStyle")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "liveLoadStyle")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "statusBarStyle")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "bgColor")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "failureText")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "videoFailureText")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "maxZoomScale")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "doubleZoomScale")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "photoViewPadding")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "animDuration")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "scaleDismissProgressThreshold")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "slideDismissDistanceThreshold")))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "slideDismissVelocityThreshold")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesPageControl")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesCountLabel")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "hidesSavedBtn")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isAdaptiveSafeArea")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFollowSystemRotation")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isStatusBarShow")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isShowStatusBarWhenPan")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isScreenRotateDisabled")))) return false;
       if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isSingleTapDisabled")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDoubleTapDisabled")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isDoubleTapZoomDisabled")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isHideSourceView")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isResumePhotoZoom")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isFullWidthForLandScape")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isUpSlideDismissDisabled")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isNeedNavigationController")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isPopGestureEnabled")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryWhenDisappear")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryWhenViewReuse")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isShowPlayImage")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoMutedPlay")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoReplay")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoPausedWhenDragged")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoPausedWhenScrollBegan")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isVideoZoomDisabled")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isHideProgressView")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoPausedWhenDragged")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoPausedWhenScrollBegan")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoMutedPlay")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isShowLivePhotoMark")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isLivePhotoLongPressPlay")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isClearMemoryForLivePhoto")))) return false;
       return true;
     }
   };

@@ -28,12 +28,53 @@ export interface BrowserConfig {
   hideStyle?: string
   loadStyle?: string
   originLoadStyle?: string
+  failStyle?: string
+  videoLoadStyle?: string
+  videoFailStyle?: string
+  liveLoadStyle?: string
+  statusBarStyle?: string
+  bgColor?: string
+  failureText?: string
+  videoFailureText?: string
   maxZoomScale?: number
   doubleZoomScale?: number
+  photoViewPadding?: number
+  animDuration?: number
+  scaleDismissProgressThreshold?: number
+  slideDismissDistanceThreshold?: number
+  slideDismissVelocityThreshold?: number
   hidesPageControl?: boolean
+  hidesCountLabel?: boolean
+  hidesSavedBtn?: boolean
   isAdaptiveSafeArea?: boolean
   isFollowSystemRotation?: boolean
+  isStatusBarShow?: boolean
+  isShowStatusBarWhenPan?: boolean
+  isScreenRotateDisabled?: boolean
   isSingleTapDisabled?: boolean
+  isDoubleTapDisabled?: boolean
+  isDoubleTapZoomDisabled?: boolean
+  isHideSourceView?: boolean
+  isResumePhotoZoom?: boolean
+  isFullWidthForLandScape?: boolean
+  isUpSlideDismissDisabled?: boolean
+  isNeedNavigationController?: boolean
+  isPopGestureEnabled?: boolean
+  isClearMemoryWhenDisappear?: boolean
+  isClearMemoryWhenViewReuse?: boolean
+  isShowPlayImage?: boolean
+  isVideoMutedPlay?: boolean
+  isVideoReplay?: boolean
+  isVideoPausedWhenDragged?: boolean
+  isVideoPausedWhenScrollBegan?: boolean
+  isVideoZoomDisabled?: boolean
+  isHideProgressView?: boolean
+  isLivePhotoPausedWhenDragged?: boolean
+  isLivePhotoPausedWhenScrollBegan?: boolean
+  isLivePhotoMutedPlay?: boolean
+  isShowLivePhotoMark?: boolean
+  isLivePhotoLongPressPlay?: boolean
+  isClearMemoryForLivePhoto?: boolean
 }
 
 export interface BrowserCallbacks {
