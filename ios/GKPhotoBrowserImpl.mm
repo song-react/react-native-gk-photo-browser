@@ -1,12 +1,14 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Foundation/Foundation.h>
 #import <GKPhotoBrowser/GKPhotoBrowser.h>
+#import <GKPhotoBrowser/GKPhotoBrowserHandler.h>
 #import <Photos/Photos.h>
 #import <QuartzCore/QuartzCore.h>
 #import <SDWebImage/SDImageCache.h>
 #import <SDWebImage/SDWebImageManager.h>
 #import <SDWebImage/SDWebImageDownloader.h>
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
 #include "GKPhotoBrowserImpl.hpp"
 
@@ -28,6 +30,37 @@ typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
   GKRNLocalizedTextKeySavePermission,
   GKRNLocalizedTextKeyLoadFailed,
 };
+
+@interface GKPhotoBrowserHandler (GKRNZoomDismiss)
+@end
+
+@implementation GKPhotoBrowserHandler (GKRNZoomDismiss)
++ (void)load {
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    Method original = class_getInstanceMethod(self, @selector(browserZoomDismiss));
+    Method swizzled = class_getInstanceMethod(self, @selector(gkrn_browserZoomDismiss));
+    method_exchangeImplementations(original, swizzled);
+  });
+}
+
+- (void)gkrn_browserZoomDismiss {
+  GKPhotoBrowser *browser = self.browser;
+  GKPhotoView *photoView = browser.curPhotoView;
+  if (photoView != nil && photoView.superview != nil) {
+    CGFloat padding = self.configure.photoViewPadding;
+    CGFloat pageWidth = CGRectGetWidth(photoView.superview.bounds);
+    CGRect imageFrame = [photoView convertRect:photoView.imageView.frame toView:photoView.superview];
+    photoView.transform = CGAffineTransformIdentity;
+    photoView.frame = CGRectMake(padding + browser.currentIndex * pageWidth,
+                                 0,
+                                 pageWidth - padding * 2,
+                                 CGRectGetHeight(photoView.superview.bounds));
+    photoView.imageView.frame = [photoView.superview convertRect:imageFrame toView:photoView];
+  }
+  [self gkrn_browserZoomDismiss];
+}
+@end
 
 template <typename Fn>
 static inline void GKRNRunOnMainSync(Fn &&fn) {
