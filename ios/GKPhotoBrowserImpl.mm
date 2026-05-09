@@ -537,6 +537,21 @@ static void GKRNDownloadURLToTemporaryFile(NSURL *url,
 }
 @end
 
+static UIColor *_Nullable GKRNColorFromOptional(const std::optional<std::string> &value) {
+  NSString *hex = GKRNStringFromOptional(value).uppercaseString;
+  if ([hex hasPrefix:@"#"]) hex = [hex substringFromIndex:1];
+  if ([hex hasPrefix:@"0X"]) hex = [hex substringFromIndex:2];
+  if (hex.length != 6 && hex.length != 8) return nil;
+
+  unsigned int rgba = 0;
+  if (![[NSScanner scannerWithString:hex] scanHexInt:&rgba]) return nil;
+  CGFloat alpha = hex.length == 8 ? ((rgba >> 24) & 0xFF) / 255.0 : 1.0;
+  CGFloat red = ((rgba >> 16) & 0xFF) / 255.0;
+  CGFloat green = ((rgba >> 8) & 0xFF) / 255.0;
+  CGFloat blue = (rgba & 0xFF) / 255.0;
+  return [UIColor colorWithRed:red green:green blue:blue alpha:alpha];
+}
+
 static void *GKRNPlayerStatusContext = &GKRNPlayerStatusContext;
 static void *GKRNPlayerBufferEmptyContext = &GKRNPlayerBufferEmptyContext;
 static void *GKRNPlayerKeepUpContext = &GKRNPlayerKeepUpContext;
@@ -625,6 +640,8 @@ class GKPhotoBrowserRuntime {
   GKPhotoBrowserShowStyle mapShowStyle(const std::optional<std::string> &value);
   GKPhotoBrowserHideStyle mapHideStyle(const std::optional<std::string> &value);
   GKPhotoBrowserLoadStyle mapLoadStyle(const std::optional<std::string> &value);
+  GKPhotoBrowserFailStyle mapFailStyle(const std::optional<std::string> &value);
+  UIStatusBarStyle mapStatusBarStyle(const std::optional<std::string> &value);
 
  private:
   __strong GKPhotoBrowser *browser_ = nil;
@@ -779,14 +796,54 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   configure.hideStyle = mapHideStyle(config.hideStyle);
   configure.loadStyle = mapLoadStyle(config.loadStyle);
   configure.originLoadStyle = mapLoadStyle(config.originLoadStyle);
+  configure.failStyle = mapFailStyle(config.failStyle);
+  configure.videoLoadStyle = mapLoadStyle(config.videoLoadStyle);
+  configure.videoFailStyle = mapFailStyle(config.videoFailStyle);
+  configure.liveLoadStyle = mapLoadStyle(config.liveLoadStyle);
+  configure.statusBarStyle = mapStatusBarStyle(config.statusBarStyle);
   configure.maxZoomScale = (CGFloat)config.maxZoomScale.value_or(20);
   configure.doubleZoomScale = (CGFloat)config.doubleZoomScale.value_or(2);
-  configure.failureText = GKRNLocalizedText(language_, GKRNLocalizedTextKeyLoadFailed);
+  configure.failureText = GKRNStringFromOptional(config.failureText) ?: GKRNLocalizedText(language_, GKRNLocalizedTextKeyLoadFailed);
+  configure.videoFailureText = GKRNStringFromOptional(config.videoFailureText) ?: configure.failureText;
+  UIColor *bgColor = GKRNColorFromOptional(config.bgColor);
+  if (bgColor != nil) configure.bgColor = bgColor;
+  if (config.photoViewPadding.has_value()) configure.photoViewPadding = (CGFloat)config.photoViewPadding.value();
+  if (config.animDuration.has_value()) configure.animDuration = (NSTimeInterval)config.animDuration.value();
+  if (config.scaleDismissProgressThreshold.has_value()) configure.scaleDismissProgressThreshold = (CGFloat)config.scaleDismissProgressThreshold.value();
+  if (config.slideDismissDistanceThreshold.has_value()) configure.slideDismissDistanceThreshold = (CGFloat)config.slideDismissDistanceThreshold.value();
+  if (config.slideDismissVelocityThreshold.has_value()) configure.slideDismissVelocityThreshold = (CGFloat)config.slideDismissVelocityThreshold.value();
   configure.hidesPageControl = config.hidesPageControl.value_or(false);
-  configure.hidesSavedBtn = !hasDownloadAction;
+  configure.hidesCountLabel = config.hidesCountLabel.value_or(false);
+  configure.hidesSavedBtn = config.hidesSavedBtn.value_or(!hasDownloadAction);
   configure.isAdaptiveSafeArea = config.isAdaptiveSafeArea.value_or(false);
   configure.isFollowSystemRotation = config.isFollowSystemRotation.value_or(false);
+  if (config.isStatusBarShow.has_value()) configure.isStatusBarShow = config.isStatusBarShow.value();
+  if (config.isShowStatusBarWhenPan.has_value()) configure.isShowStatusBarWhenPan = config.isShowStatusBarWhenPan.value();
+  if (config.isScreenRotateDisabled.has_value()) configure.isScreenRotateDisabled = config.isScreenRotateDisabled.value();
   configure.isSingleTapDisabled = config.isSingleTapDisabled.value_or(false);
+  if (config.isDoubleTapDisabled.has_value()) configure.isDoubleTapDisabled = config.isDoubleTapDisabled.value();
+  if (config.isDoubleTapZoomDisabled.has_value()) configure.isDoubleTapZoomDisabled = config.isDoubleTapZoomDisabled.value();
+  if (config.isHideSourceView.has_value()) configure.isHideSourceView = config.isHideSourceView.value();
+  if (config.isResumePhotoZoom.has_value()) configure.isResumePhotoZoom = config.isResumePhotoZoom.value();
+  if (config.isFullWidthForLandScape.has_value()) configure.isFullWidthForLandScape = config.isFullWidthForLandScape.value();
+  if (config.isUpSlideDismissDisabled.has_value()) configure.isUpSlideDismissDisabled = config.isUpSlideDismissDisabled.value();
+  if (config.isNeedNavigationController.has_value()) configure.isNeedNavigationController = config.isNeedNavigationController.value();
+  if (config.isPopGestureEnabled.has_value()) configure.isPopGestureEnabled = config.isPopGestureEnabled.value();
+  if (config.isClearMemoryWhenDisappear.has_value()) configure.isClearMemoryWhenDisappear = config.isClearMemoryWhenDisappear.value();
+  if (config.isClearMemoryWhenViewReuse.has_value()) configure.isClearMemoryWhenViewReuse = config.isClearMemoryWhenViewReuse.value();
+  if (config.isShowPlayImage.has_value()) configure.isShowPlayImage = config.isShowPlayImage.value();
+  if (config.isVideoMutedPlay.has_value()) configure.isVideoMutedPlay = config.isVideoMutedPlay.value();
+  if (config.isVideoReplay.has_value()) configure.isVideoReplay = config.isVideoReplay.value();
+  if (config.isVideoPausedWhenDragged.has_value()) configure.isVideoPausedWhenDragged = config.isVideoPausedWhenDragged.value();
+  if (config.isVideoPausedWhenScrollBegan.has_value()) configure.isVideoPausedWhenScrollBegan = config.isVideoPausedWhenScrollBegan.value();
+  if (config.isVideoZoomDisabled.has_value()) configure.isVideoZoomDisabled = config.isVideoZoomDisabled.value();
+  if (config.isHideProgressView.has_value()) configure.isHideProgressView = config.isHideProgressView.value();
+  if (config.isLivePhotoPausedWhenDragged.has_value()) configure.isLivePhotoPausedWhenDragged = config.isLivePhotoPausedWhenDragged.value();
+  if (config.isLivePhotoPausedWhenScrollBegan.has_value()) configure.isLivePhotoPausedWhenScrollBegan = config.isLivePhotoPausedWhenScrollBegan.value();
+  if (config.isLivePhotoMutedPlay.has_value()) configure.isLivePhotoMutedPlay = config.isLivePhotoMutedPlay.value();
+  if (config.isShowLivePhotoMark.has_value()) configure.isShowLivePhotoMark = config.isShowLivePhotoMark.value();
+  if (config.isLivePhotoLongPressPlay.has_value()) configure.isLivePhotoLongPressPlay = config.isLivePhotoLongPressPlay.value();
+  if (config.isClearMemoryForLivePhoto.has_value()) configure.isClearMemoryForLivePhoto = config.isClearMemoryForLivePhoto.value();
 
   GKRNAVPlayerManager *playerManager = [GKRNAVPlayerManager new];
   [configure setupVideoPlayerProtocol:playerManager];
@@ -991,11 +1048,13 @@ GKPhotoBrowserShowStyle GKPhotoBrowserRuntime::mapShowStyle(const std::optional<
   const std::string style = value.value_or("zoom");
   if (style == "none") return GKPhotoBrowserShowStyleNone;
   if (style == "push") return GKPhotoBrowserShowStylePush;
+  if (style == "pushZoom") return GKPhotoBrowserShowStylePushZoom;
   return GKPhotoBrowserShowStyleZoom;
 }
 
 GKPhotoBrowserHideStyle GKPhotoBrowserRuntime::mapHideStyle(const std::optional<std::string> &value) {
   const std::string style = value.value_or("zoomScale");
+  if (style == "none") return GKPhotoBrowserHideStyleNone;
   if (style == "zoom") return GKPhotoBrowserHideStyleZoom;
   if (style == "zoomSlide") return GKPhotoBrowserHideStyleZoomSlide;
   return GKPhotoBrowserHideStyleZoomScale;
@@ -1006,7 +1065,26 @@ GKPhotoBrowserLoadStyle GKPhotoBrowserRuntime::mapLoadStyle(const std::optional<
   if (style == "indeterminate") return GKPhotoBrowserLoadStyleIndeterminate;
   if (style == "indeterminateMask") return GKPhotoBrowserLoadStyleIndeterminateMask;
   if (style == "determinate") return GKPhotoBrowserLoadStyleDeterminate;
+  if (style == "determinateSector") return GKPhotoBrowserLoadStyleDeterminateSector;
   return GKPhotoBrowserLoadStyleCustom;
+}
+
+GKPhotoBrowserFailStyle GKPhotoBrowserRuntime::mapFailStyle(const std::optional<std::string> &value) {
+  const std::string style = value.value_or("onlyText");
+  if (style == "onlyImage") return GKPhotoBrowserFailStyleOnlyImage;
+  if (style == "imageAndText") return GKPhotoBrowserFailStyleImageAndText;
+  if (style == "custom") return GKPhotoBrowserFailStyleCustom;
+  return GKPhotoBrowserFailStyleOnlyText;
+}
+
+UIStatusBarStyle GKPhotoBrowserRuntime::mapStatusBarStyle(const std::optional<std::string> &value) {
+  const std::string style = value.value_or("light");
+  if (style == "default") return UIStatusBarStyleDefault;
+  if (style == "dark") {
+    if (@available(iOS 13.0, *)) return UIStatusBarStyleDarkContent;
+    return UIStatusBarStyleDefault;
+  }
+  return UIStatusBarStyleLightContent;
 }
 
 void GKPhotoBrowserRuntime::handleDownload(NSInteger index) {
@@ -1471,7 +1549,6 @@ void GKPhotoBrowserImpl::dismiss() {
     [_controlsContainer addSubview:_currentTimeLabel];
     [_controlsContainer addSubview:_totalTimeLabel];
     [_controlsContainer addSubview:_playPauseButton];
-    [_videoPlayView addSubview:_controlsContainer];
 
     [_progressSlider addTarget:self action:@selector(onSliderTouchDown) forControlEvents:UIControlEventTouchDown];
     [_progressSlider addTarget:self action:@selector(onSliderValueChanged) forControlEvents:UIControlEventValueChanged];
@@ -1482,6 +1559,15 @@ void GKPhotoBrowserImpl::dismiss() {
     [self updatePlayPauseButton];
   }
   return self;
+}
+
+- (void)setBrowser:(GKPhotoBrowser *)browser {
+  _browser = browser;
+  if (browser != nil && self.controlsContainer.superview != browser.view) {
+    [browser.view addSubview:self.controlsContainer];
+  }
+  self.videoPlayView.backgroundColor = browser.configure.bgColor;
+  ((AVPlayerLayer *)self.videoPlayView.layer).backgroundColor = browser.configure.bgColor.CGColor;
 }
 
 - (void)dealloc {
@@ -1512,13 +1598,13 @@ void GKPhotoBrowserImpl::dismiss() {
 }
 
 - (void)layoutControls {
-  if (CGRectIsEmpty(self.videoPlayView.bounds)) return;
+  if (self.browser == nil || CGRectIsEmpty(self.browser.view.bounds)) return;
 
   CGFloat horizontalInset = 18.0;
   CGFloat containerHeight = 92.0;
-  CGFloat bottomInset = self.videoPlayView.safeAreaInsets.bottom;
-  CGFloat width = CGRectGetWidth(self.videoPlayView.bounds) - horizontalInset * 2.0;
-  CGFloat originY = CGRectGetHeight(self.videoPlayView.bounds) - bottomInset - containerHeight;
+  CGFloat bottomInset = self.browser.view.safeAreaInsets.bottom;
+  CGFloat width = CGRectGetWidth(self.browser.view.bounds) - horizontalInset * 2.0;
+  CGFloat originY = CGRectGetHeight(self.browser.view.bounds) - bottomInset - containerHeight;
   self.controlsContainer.frame = CGRectMake(horizontalInset, originY, width, containerHeight);
 
   CGFloat labelHeight = 24.0;
