@@ -409,10 +409,11 @@ static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
                placeholderImage:placeholderImage
                         options:SDWebImageRetryFailed
                         context:context
-                       progress:^(NSInteger receivedSize, NSInteger expectedSize, NSURL *_Nullable targetURL) {
+                      progress:^(NSInteger receivedSize, NSInteger expectedSize, NSURL *_Nullable targetURL) {
                          if (progress) progress(receivedSize, expectedSize);
                        }
                       completed:^(UIImage *_Nullable image, NSError *_Nullable error, SDImageCacheType cacheType, NSURL *_Nullable imageURL) {
+                        if (error != nil && [error.domain isEqualToString:NSURLErrorDomain] && error.code == NSURLErrorCancelled) return;
                         if (completion) completion(image, imageURL, error == nil, error);
                       }];
 }
