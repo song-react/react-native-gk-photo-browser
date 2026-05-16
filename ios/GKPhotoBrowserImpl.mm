@@ -31,6 +31,91 @@ typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
   GKRNLocalizedTextKeyLoadFailed,
 };
 
+@interface GKRNOriginLoadingView : UIView
+- (void)setProgress:(CGFloat)progress;
+@end
+
+@implementation GKRNOriginLoadingView {
+  UIView *_panel;
+  UILabel *_label;
+  CAShapeLayer *_trackLayer;
+  CAShapeLayer *_progressLayer;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+  self = [super initWithFrame:frame];
+  if (self != nil) {
+    self.userInteractionEnabled = NO;
+    _panel = [UIView new];
+    _panel.frame = CGRectMake(0, 0, 130, 130);
+    _panel.backgroundColor = [UIColor colorWithRed:31 / 255.0 green:32 / 255.0 blue:33 / 255.0 alpha:0.9];
+    _panel.layer.cornerRadius = 10;
+    [self addSubview:_panel];
+
+    _trackLayer = [CAShapeLayer layer];
+    _trackLayer.fillColor = UIColor.clearColor.CGColor;
+    _trackLayer.strokeColor = [UIColor colorWithWhite:0 alpha:0.5].CGColor;
+    _trackLayer.lineWidth = 2;
+    _trackLayer.lineCap = kCALineCapRound;
+
+    _progressLayer = [CAShapeLayer layer];
+    _progressLayer.fillColor = UIColor.clearColor.CGColor;
+    _progressLayer.strokeColor = UIColor.whiteColor.CGColor;
+    _progressLayer.lineWidth = 2;
+    _progressLayer.lineCap = kCALineCapRound;
+    _progressLayer.strokeEnd = 0;
+    CABasicAnimation *rotation = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+    rotation.fromValue = @0;
+    rotation.toValue = @(M_PI * 2);
+    rotation.duration = 0.9;
+    rotation.repeatCount = HUGE;
+    rotation.removedOnCompletion = NO;
+    [_progressLayer addAnimation:rotation forKey:@"rotation"];
+
+    [_panel.layer addSublayer:_trackLayer];
+    [_panel.layer addSublayer:_progressLayer];
+
+    _label = [UILabel new];
+    _label.textColor = UIColor.whiteColor;
+    _label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    _label.textAlignment = NSTextAlignmentCenter;
+    [_panel addSubview:_label];
+  }
+  return self;
+}
+
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  _panel.center = CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds));
+  CGRect layerFrame = _panel.bounds;
+  _trackLayer.frame = layerFrame;
+  UIBezierPath *path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(CGRectGetMidX(layerFrame), 47.5)
+                                                      radius:18
+                                                  startAngle:-M_PI_2
+                                                    endAngle:M_PI + M_PI_2
+                                                   clockwise:YES];
+  _trackLayer.path = path.CGPath;
+  _progressLayer.bounds = CGRectMake(0, 0, 40, 40);
+  _progressLayer.position = CGPointMake(CGRectGetMidX(layerFrame), 47.5);
+  _progressLayer.path = [UIBezierPath bezierPathWithArcCenter:CGPointMake(20, 20)
+                                                       radius:18
+                                                   startAngle:-M_PI_2
+                                                     endAngle:M_PI + M_PI_2
+                                                    clockwise:YES].CGPath;
+  _label.frame = CGRectMake(0, 84, CGRectGetWidth(_panel.bounds), 16);
+}
+
+- (void)setProgress:(CGFloat)progress {
+  CGFloat value = MIN(MAX(progress, 0), 1);
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  _progressLayer.strokeEnd = value;
+  [CATransaction commit];
+  _label.text = [NSString stringWithFormat:@"加载 %.0f%%", value * 100];
+}
+
+@end
+
 @interface GKPhotoBrowserHandler (GKRNZoomDismiss)
 @end
 
@@ -627,11 +712,13 @@ class GKPhotoBrowserRuntime {
   void handlePhotoSelected(NSInteger index);
   void handleSingleTap(NSInteger index);
   void handleDismissWillStart();
+  void handleImageLoadProgress(NSInteger index, float progress, BOOL isOriginImage);
 
  private:
   void showOnMain(const BrowserConfig &config, const std::optional<BrowserCallbacks> &callbacks);
   void dismissOnMain();
   void clearSourceImagePlaceholders();
+  void hideOriginLoadingView();
   GKPhoto *_Nullable makePhoto(const BrowserImage &image);
   void installImageHeaders(const std::vector<BrowserImage> &images);
   bool shouldAutoLoadOriginAtIndex(NSInteger index) const;
@@ -648,6 +735,7 @@ class GKPhotoBrowserRuntime {
   __strong GKPhotoBrowserDelegateProxy *delegateProxy_ = nil;
   __strong id forwardObserver_ = nil;
   __strong GKRNPhotoBrowserCover *cover_ = nil;
+  __strong GKRNOriginLoadingView *originLoadingView_ = nil;
   __strong GKRNAVPlayerManager *playerManager_ = nil;
   __strong NSMutableArray<UIView *> *sourceImagePlaceholders_ = nil;
   std::vector<BrowserImage> images_;
@@ -703,6 +791,13 @@ static inline margelo::nitro::gkphotobrowser::GKPhotoBrowserRuntime *_Nullable G
   auto *owner = GKRNRuntimeFromOwner(self.owner);
   if (owner != nullptr) {
     owner->handleSingleTap(index);
+  }
+}
+
+- (void)photoBrowser:(GKPhotoBrowser *)browser loadImageAtIndex:(NSInteger)index progress:(float)progress isOriginImage:(BOOL)isOriginImage {
+  auto *owner = GKRNRuntimeFromOwner(self.owner);
+  if (owner != nullptr) {
+    owner->handleImageLoadProgress(index, progress, isOriginImage);
   }
 }
 @end
@@ -795,7 +890,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   configure.showStyle = mapShowStyle(config.showStyle);
   configure.hideStyle = mapHideStyle(config.hideStyle);
   configure.loadStyle = mapLoadStyle(config.loadStyle);
-  configure.originLoadStyle = mapLoadStyle(config.originLoadStyle);
+  configure.originLoadStyle = GKPhotoBrowserLoadStyleCustom;
   configure.failStyle = mapFailStyle(config.failStyle);
   configure.videoLoadStyle = mapLoadStyle(config.videoLoadStyle);
   configure.videoFailStyle = mapFailStyle(config.videoFailStyle);
@@ -861,6 +956,9 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   installForwardObserver();
 
   [browser showFromVC:viewController];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    handlePhotoSelected(index);
+  });
 }
 
 void GKPhotoBrowserRuntime::dismissOnMain() {
@@ -869,6 +967,7 @@ void GKPhotoBrowserRuntime::dismissOnMain() {
   [playerManager_ setControlsHiddenByDismiss:YES];
   [browser_ dismiss];
   clearSourceImagePlaceholders();
+  hideOriginLoadingView();
   browser_ = nil;
   cover_ = nil;
   playerManager_ = nil;
@@ -881,6 +980,11 @@ void GKPhotoBrowserRuntime::clearSourceImagePlaceholders() {
     [view removeFromSuperview];
   }
   [sourceImagePlaceholders_ removeAllObjects];
+}
+
+void GKPhotoBrowserRuntime::hideOriginLoadingView() {
+  [originLoadingView_ removeFromSuperview];
+  originLoadingView_ = nil;
 }
 
 GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
@@ -1155,6 +1259,7 @@ void GKPhotoBrowserRuntime::handleForward(NSInteger index) {
 void GKPhotoBrowserRuntime::handleDidDisappear() {
   removeForwardObserver();
   clearSourceImagePlaceholders();
+  hideOriginLoadingView();
   browser_ = nil;
   cover_ = nil;
   playerManager_ = nil;
@@ -1177,6 +1282,7 @@ void GKPhotoBrowserRuntime::handlePanEnded(BOOL willDisappear) {
 
 void GKPhotoBrowserRuntime::handlePhotoSelected(NSInteger index) {
   if (browser_ == nil) return;
+  hideOriginLoadingView();
   BOOL usesTapToToggleChrome = browser_.configure.isSingleTapDisabled;
   [cover_ showActionButtonsAnimated:NO autoHide:usesTapToToggleChrome];
   if (browser_.curPhoto.isVideo) {
@@ -1212,8 +1318,25 @@ void GKPhotoBrowserRuntime::handleSingleTap(NSInteger index) {
 }
 
 void GKPhotoBrowserRuntime::handleDismissWillStart() {
+  hideOriginLoadingView();
   [cover_ setActionButtonsHiddenByDismiss:YES];
   [playerManager_ setControlsHiddenByDismiss:YES];
+}
+
+void GKPhotoBrowserRuntime::handleImageLoadProgress(NSInteger index, float progress, BOOL isOriginImage) {
+  if (browser_ == nil || !isOriginImage || index != browser_.currentIndex) return;
+  if (progress >= 1) {
+    hideOriginLoadingView();
+    return;
+  }
+
+  if (originLoadingView_ == nil) {
+    originLoadingView_ = [[GKRNOriginLoadingView alloc] initWithFrame:browser_.view.bounds];
+    originLoadingView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [browser_.view addSubview:originLoadingView_];
+  }
+  originLoadingView_.frame = browser_.view.bounds;
+  [originLoadingView_ setProgress:progress];
 }
 
 GKPhotoBrowserImpl::GKPhotoBrowserImpl()
@@ -1271,7 +1394,7 @@ void GKPhotoBrowserImpl::dismiss() {
     }
 
     _closeButton = [self makeButtonWithSystemName:@"xmark"];
-    _downloadButton = [self makeButtonWithSystemName:@"arrow.down.to.line"];
+    _downloadButton = [self makeButtonWithImage:[self downloadImage]];
     _forwardButton = [self makeButtonWithSystemName:@"arrowshape.turn.up.right.fill"];
     _closeButton.hidden = YES;
     _downloadButton.hidden = YES;
@@ -1302,8 +1425,8 @@ void GKPhotoBrowserImpl::dismiss() {
 
 - (void)updateLayoutWithFrame:(CGRect)frame {
   const CGFloat horizontalInset = 15.0;
-  const CGFloat topOffset = 4.0;
-  const CGFloat buttonSize = 40.0;
+  const CGFloat topOffset = 20.0;
+  const CGFloat buttonSize = 35.0;
   const CGFloat buttonGap = 20.0;
   UIEdgeInsets safeInsets = [self resolvedSafeAreaInsets];
   CGFloat topY = safeInsets.top + topOffset;
@@ -1457,16 +1580,32 @@ void GKPhotoBrowserImpl::dismiss() {
 }
 
 - (UIButton *)makeButtonWithSystemName:(NSString *)systemName {
-  const CGFloat buttonSize = 40.0;
+  const CGFloat buttonSize = 35.0;
+  UIImageSymbolConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIImageSymbolWeightSemibold];
+  UIImage *image = [[UIImage systemImageNamed:systemName] imageByApplyingSymbolConfiguration:configuration];
+  return [self makeButtonWithImage:image];
+}
+
+- (UIButton *)makeButtonWithImage:(UIImage *)image {
+  const CGFloat buttonSize = 35.0;
   UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
   button.tintColor = UIColor.whiteColor;
   button.backgroundColor = [UIColor colorWithWhite:0.18 alpha:0.64];
   button.layer.cornerRadius = buttonSize * 0.5;
   button.clipsToBounds = YES;
-  UIImageSymbolConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:16 weight:UIImageSymbolWeightSemibold];
-  UIImage *image = [[UIImage systemImageNamed:systemName] imageByApplyingSymbolConfiguration:configuration];
-  [button setImage:image forState:UIControlStateNormal];
+  [button setImage:[image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
   return button;
+}
+
+- (UIImage *)downloadImage {
+  NSString *base64 = @"iVBORw0KGgoAAAANSUhEUgAAADMAAAAzCAYAAAA6oTAqAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAodJREFUeAHtmett2zAQgO/0ahW7QDaouoFHcDboBlE36AZJRugG7gRtJ7A3aDaoNrCByqYgybry4Dh1DFHWizYT6PtjyaIIfjiKPJIAmonjdLIW2b0QFMBrRggRxJtsKWVonWTLJdE1aMQCjeTgBIiwEyC4fp/kE9CIVplzM8iYyiBjKoOMqQwypjLImIpTtyDJJDFJOM/Kg7rvbIECAlz8v8dAiGxa933bppXneY91y+OpApz5FuDeSZnPz0lj/coXV757s7+PRTaX/02hMTizwH7wfYyqSlV2M16LbMn5LeMSNhXpFwoL2M7jNK3MupUyHBG0rR+XlTiEAixwXrUmUspw1+IKwCTkmsgV+b3qcVU3m4KBoAW3qmelMtzFjIvKHhkd1X7CMGmayiBjKp1kEDCSmcE3eVE75SivBxby54Hrgw7Uzs3KG2HfjK+ciK/jdTpDC2+b1kEFfR+NvJCv5Sg6I844Wk7UHSKD0WGuNJYN4oZBA7j8+EmE8X0/AsQVtKSDDAUizV9EoonQsQizq6/9/Nbpmym2NGsjpBLh+qADnb4Z5kkIfM95FuCGym9Iph748bi8LhGml6FZFaECjiOkT4QpXZztFmTOH2iIZWN4GKFTtBWxwPlUtlDrddIsi5CKPiOyp/cMoI6QDhFGSzpTJaRLhNGWm5UJ6RRhtCaa3PDNJvnK17pFmF5Hs3NxltHs0gwypjLImMqbklGeAqw32RKM2Wd+ych3S9utjAx13KTQBhW/VI+UkfkrD4Wk6RwMQzVh7p4p+OC7i0Ju/4BJFFB54HTy5CwWaWiBdUeX3EgnWIGNX0bvnJ9VxU7K7OFuh0QTRDzboCA3GFeE+Mi9pE75fxhtWmeYQc8PAAAAAElFTkSuQmCC";
+  NSData *data = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+  UIImage *image = [UIImage imageWithData:data];
+  UIGraphicsBeginImageContextWithOptions(CGSizeMake(16, 16), NO, 0);
+  [image drawInRect:CGRectMake(0, 0, 16, 16)];
+  UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+  UIGraphicsEndImageContext();
+  return resizedImage;
 }
 
 - (void)onClose {
