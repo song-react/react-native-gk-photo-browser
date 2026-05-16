@@ -5,6 +5,7 @@
 #import <Photos/Photos.h>
 #import <QuartzCore/QuartzCore.h>
 #import <SDWebImage/SDImageCache.h>
+#import <SDWebImage/SDWebImage.h>
 #import <SDWebImage/SDWebImageManager.h>
 #import <SDWebImage/SDWebImageDownloader.h>
 #import <UIKit/UIKit.h>
@@ -376,6 +377,70 @@ static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
   if (memoryImage != nil) return memoryImage;
   return [[SDImageCache sharedImageCache] imageFromDiskCacheForKey:key];
 }
+
+@interface GKRNWebImageManager : NSObject <GKWebImageProtocol>
+@property(nonatomic, weak, nullable) GKPhotoBrowser *browser;
+@property(nonatomic, weak, nullable) GKPhoto *photo;
+@end
+
+@implementation GKRNWebImageManager
+
+- (Class)imageViewClass {
+  Class imageViewClass = NSClassFromString(@"SDAnimatedImageView");
+  return imageViewClass ?: UIImageView.class;
+}
+
+- (void)setImageForImageView:(UIImageView *)imageView url:(NSURL *)url placeholderImage:(UIImage *)placeholderImage progress:(GKWebImageProgressBlock)progress completion:(GKWebImageCompletionBlock)completion {
+  NSDictionary<NSString *, NSString *> *headers = GKRNHeadersFromPhoto(self.photo);
+  SDWebImageContext *context = nil;
+  if (headers.count > 0) {
+    context = @{
+      SDWebImageContextDownloadRequestModifier: [SDWebImageDownloaderRequestModifier requestModifierWithBlock:^NSURLRequest *_Nullable(NSURLRequest *request) {
+        NSMutableURLRequest *mutableRequest = [request mutableCopy];
+        [headers enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
+          [mutableRequest setValue:value forHTTPHeaderField:key];
+        }];
+        return mutableRequest;
+      }]
+    };
+  }
+
+  [imageView sd_setImageWithURL:url
+               placeholderImage:placeholderImage
+                        options:SDWebImageRetryFailed
+                        context:context
+                       progress:^(NSInteger receivedSize, NSInteger expectedSize, NSURL *_Nullable targetURL) {
+                         if (progress) progress(receivedSize, expectedSize);
+                       }
+                      completed:^(UIImage *_Nullable image, NSError *_Nullable error, SDImageCacheType cacheType, NSURL *_Nullable imageURL) {
+                        if (completion) completion(image, imageURL, error == nil, error);
+                      }];
+}
+
+- (UIImage *)imageWithData:(NSData *)data {
+  return [UIImage sd_imageWithGIFData:data];
+}
+
+- (void)cancelImageRequestWithImageView:(UIImageView *)imageView {
+  [imageView sd_cancelCurrentImageLoad];
+}
+
+- (UIImage *)imageFromMemoryForURL:(NSURL *)url {
+  return GKRNImageFromSDCache(url);
+}
+
+- (void)clearMemoryForURL:(NSURL *)url {
+  NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:url];
+  if (key.length > 0) {
+    [[SDImageCache sharedImageCache].memoryCache removeObjectForKey:key];
+  }
+}
+
+- (void)clearMemory {
+  [[SDImageCache sharedImageCache] clearMemory];
+}
+
+@end
 
 static void GKRNShowToast(UIView *_Nullable hostView, NSString *message) {
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -939,6 +1004,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   if (config.isShowLivePhotoMark.has_value()) configure.isShowLivePhotoMark = config.isShowLivePhotoMark.value();
   if (config.isLivePhotoLongPressPlay.has_value()) configure.isLivePhotoLongPressPlay = config.isLivePhotoLongPressPlay.value();
   if (config.isClearMemoryForLivePhoto.has_value()) configure.isClearMemoryForLivePhoto = config.isClearMemoryForLivePhoto.value();
+  [configure setupWebImageProtocol:[GKRNWebImageManager new]];
 
   GKRNAVPlayerManager *playerManager = [GKRNAVPlayerManager new];
   [configure setupVideoPlayerProtocol:playerManager];
