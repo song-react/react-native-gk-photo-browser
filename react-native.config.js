@@ -1,7 +1,9 @@
 module.exports = {
   dependency: {
     platforms: {
-      ios: {},
+      ios: {
+        podspecPath: './NitroGkPhotoBrowser.podspec',
+      },
       android: null,
     },
   },
