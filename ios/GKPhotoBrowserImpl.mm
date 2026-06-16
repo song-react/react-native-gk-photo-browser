@@ -148,6 +148,35 @@ typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
 }
 @end
 
+@interface GKPhotoBrowser (GKRNPrivate)
+@property(nonatomic, strong, readonly) GKPhotoBrowserHandler *handler;
+@end
+
+@interface GKPhoto (GKRNDeferredLoad)
+@property(nonatomic, strong, nullable) NSURL *gkrn_deferredURL;
+@property(nonatomic, strong, nullable) UIImage *gkrn_deferredImage;
+@end
+
+@implementation GKPhoto (GKRNDeferredLoad)
+
+- (NSURL *)gkrn_deferredURL {
+  return objc_getAssociatedObject(self, @selector(gkrn_deferredURL));
+}
+
+- (void)setGkrn_deferredURL:(NSURL *)url {
+  objc_setAssociatedObject(self, @selector(gkrn_deferredURL), url, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (UIImage *)gkrn_deferredImage {
+  return objc_getAssociatedObject(self, @selector(gkrn_deferredImage));
+}
+
+- (void)setGkrn_deferredImage:(UIImage *)image {
+  objc_setAssociatedObject(self, @selector(gkrn_deferredImage), image, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+@end
+
 template <typename Fn>
 static inline void GKRNRunOnMainSync(Fn &&fn) {
   if ([NSThread isMainThread]) {
@@ -369,6 +398,19 @@ static NSDictionary<NSString *, NSString *> *_Nullable GKRNHeadersFromPhoto(GKPh
   return (NSDictionary<NSString *, NSString *> *)headers;
 }
 
+static SDWebImageContext *_Nullable GKRNWebImageContext(NSDictionary<NSString *, NSString *> *_Nullable headers) {
+  if (headers.count == 0) return nil;
+  return @{
+    SDWebImageContextDownloadRequestModifier: [SDWebImageDownloaderRequestModifier requestModifierWithBlock:^NSURLRequest *_Nullable(NSURLRequest *request) {
+      NSMutableURLRequest *mutableRequest = [request mutableCopy];
+      [headers enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
+        [mutableRequest setValue:value forHTTPHeaderField:key];
+      }];
+      return mutableRequest;
+    }]
+  };
+}
+
 static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
   if (url == nil || url.isFileURL) return nil;
   NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:url];
@@ -378,12 +420,27 @@ static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
   return [[SDImageCache sharedImageCache] imageFromDiskCacheForKey:key];
 }
 
+static BOOL GKRNIsImageLoadCancelled(NSError *_Nullable error) {
+  if (error == nil) return NO;
+  if ([error.domain isEqualToString:NSURLErrorDomain] && error.code == NSURLErrorCancelled) return YES;
+  if ([error.domain isEqualToString:SDWebImageErrorDomain] && error.code == SDWebImageErrorCancelled) return YES;
+
+  NSError *underlyingError = error.userInfo[NSUnderlyingErrorKey];
+  if (underlyingError == nil || underlyingError == error) return NO;
+  return GKRNIsImageLoadCancelled(underlyingError);
+}
+
 @interface GKRNWebImageManager : NSObject <GKWebImageProtocol>
 @property(nonatomic, weak, nullable) GKPhotoBrowser *browser;
 @property(nonatomic, weak, nullable) GKPhoto *photo;
 @end
 
 @implementation GKRNWebImageManager
+
+- (BOOL)shouldUseAnimatedPlaceholder {
+  GKPhoto *photo = self.photo;
+  return photo != nil && photo.sourceImageView != nil && photo.placeholderImage != nil && self.browser != nil && !self.browser.handler.isShow;
+}
 
 - (Class)imageViewClass {
   Class imageViewClass = NSClassFromString(@"SDAnimatedImageView");
@@ -392,17 +449,11 @@ static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
 
 - (void)setImageForImageView:(UIImageView *)imageView url:(NSURL *)url placeholderImage:(UIImage *)placeholderImage progress:(GKWebImageProgressBlock)progress completion:(GKWebImageCompletionBlock)completion {
   NSDictionary<NSString *, NSString *> *headers = GKRNHeadersFromPhoto(self.photo);
-  SDWebImageContext *context = nil;
-  if (headers.count > 0) {
-    context = @{
-      SDWebImageContextDownloadRequestModifier: [SDWebImageDownloaderRequestModifier requestModifierWithBlock:^NSURLRequest *_Nullable(NSURLRequest *request) {
-        NSMutableURLRequest *mutableRequest = [request mutableCopy];
-        [headers enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
-          [mutableRequest setValue:value forHTTPHeaderField:key];
-        }];
-        return mutableRequest;
-      }]
-    };
+  SDWebImageContext *context = GKRNWebImageContext(headers);
+
+  if ([self shouldUseAnimatedPlaceholder]) {
+    imageView.image = placeholderImage ?: self.photo.placeholderImage ?: self.photo.sourceImageView.image;
+    return;
   }
 
   [imageView sd_setImageWithURL:url
@@ -413,7 +464,7 @@ static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
                          if (progress) progress(receivedSize, expectedSize);
                        }
                       completed:^(UIImage *_Nullable image, NSError *_Nullable error, SDImageCacheType cacheType, NSURL *_Nullable imageURL) {
-                        if (error != nil && [error.domain isEqualToString:NSURLErrorDomain] && error.code == NSURLErrorCancelled) return;
+                        if (GKRNIsImageLoadCancelled(error)) return;
                         if (completion) completion(image, imageURL, error == nil, error);
                       }];
 }
@@ -427,6 +478,7 @@ static UIImage *_Nullable GKRNImageFromSDCache(NSURL *_Nullable url) {
 }
 
 - (UIImage *)imageFromMemoryForURL:(NSURL *)url {
+  if ([self shouldUseAnimatedPlaceholder]) return nil;
   return GKRNImageFromSDCache(url);
 }
 
@@ -784,6 +836,8 @@ class GKPhotoBrowserRuntime {
   void showOnMain(const BrowserConfig &config, const std::optional<BrowserCallbacks> &callbacks);
   void dismissOnMain();
   void clearSourceImagePlaceholders();
+  void clearDeferredLoads();
+  void restoreDeferredLoads();
   void hideOriginLoadingView();
   GKPhoto *_Nullable makePhoto(const BrowserImage &image);
   void installImageHeaders(const std::vector<BrowserImage> &images);
@@ -804,6 +858,7 @@ class GKPhotoBrowserRuntime {
   __strong GKRNOriginLoadingView *originLoadingView_ = nil;
   __strong GKRNAVPlayerManager *playerManager_ = nil;
   __strong NSMutableArray<UIView *> *sourceImagePlaceholders_ = nil;
+  __strong NSMutableArray<GKPhoto *> *deferredLoadPhotos_ = nil;
   std::vector<BrowserImage> images_;
   std::function<void()> onDismissCallback_;
   std::function<void(double)> onDownloadCallback_;
@@ -874,6 +929,7 @@ GKPhotoBrowserRuntime::GKPhotoBrowserRuntime() {
   delegateProxy_ = [GKPhotoBrowserDelegateProxy new];
   delegateProxy_.owner = this;
   sourceImagePlaceholders_ = [NSMutableArray new];
+  deferredLoadPhotos_ = [NSMutableArray new];
   language_ = GKRNResolveLanguage(std::nullopt);
 }
 
@@ -882,6 +938,7 @@ GKPhotoBrowserRuntime::~GKPhotoBrowserRuntime() {
     delegateProxy_.owner = nullptr;
     removeForwardObserver();
     clearSourceImagePlaceholders();
+    clearDeferredLoads();
     browser_ = nil;
     cover_ = nil;
     playerManager_ = nil;
@@ -928,6 +985,7 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
     browser_ = nil;
   }
   clearSourceImagePlaceholders();
+  clearDeferredLoads();
 
   NSMutableArray<GKPhoto *> *photos = [NSMutableArray arrayWithCapacity:config.images.size()];
   for (const BrowserImage &image : config.images) {
@@ -939,6 +997,8 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
 
   UIViewController *viewController = GKRNCurrentTopViewController();
   if (photos.count == 0 || viewController == nil) {
+    clearSourceImagePlaceholders();
+    clearDeferredLoads();
     if (onDismissCallback_) {
       onDismissCallback_();
     }
@@ -1023,8 +1083,13 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   installForwardObserver();
 
   [browser showFromVC:viewController];
-  dispatch_async(dispatch_get_main_queue(), ^{
-    handlePhotoSelected(index);
+  __weak GKPhotoBrowser *weakBrowser = browser;
+  NSTimeInterval deferredLoadDelay = configure.animDuration + 0.05;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(deferredLoadDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (browser_ == weakBrowser) {
+      restoreDeferredLoads();
+      handlePhotoSelected(index);
+    }
   });
 }
 
@@ -1034,6 +1099,7 @@ void GKPhotoBrowserRuntime::dismissOnMain() {
   [playerManager_ setControlsHiddenByDismiss:YES];
   [browser_ dismiss];
   clearSourceImagePlaceholders();
+  clearDeferredLoads();
   hideOriginLoadingView();
   browser_ = nil;
   cover_ = nil;
@@ -1047,6 +1113,44 @@ void GKPhotoBrowserRuntime::clearSourceImagePlaceholders() {
     [view removeFromSuperview];
   }
   [sourceImagePlaceholders_ removeAllObjects];
+}
+
+void GKPhotoBrowserRuntime::clearDeferredLoads() {
+  for (GKPhoto *photo in deferredLoadPhotos_) {
+    photo.gkrn_deferredURL = nil;
+    photo.gkrn_deferredImage = nil;
+  }
+  [deferredLoadPhotos_ removeAllObjects];
+}
+
+void GKPhotoBrowserRuntime::restoreDeferredLoads() {
+  if (browser_ == nil || deferredLoadPhotos_.count == 0) return;
+
+  GKPhotoView *currentPhotoView = browser_.curPhotoView;
+  GKPhoto *currentPhoto = currentPhotoView.photo;
+  BOOL shouldReloadCurrentPhoto = NO;
+
+  for (GKPhoto *photo in deferredLoadPhotos_) {
+    NSURL *url = photo.gkrn_deferredURL;
+    UIImage *image = photo.gkrn_deferredImage;
+    if (url == nil && image == nil) continue;
+
+    photo.url = url;
+    photo.image = image;
+    photo.finished = NO;
+    photo.failed = NO;
+    photo.gkrn_deferredURL = nil;
+    photo.gkrn_deferredImage = nil;
+
+    if (photo == currentPhoto) {
+      shouldReloadCurrentPhoto = YES;
+    }
+  }
+  [deferredLoadPhotos_ removeAllObjects];
+
+  if (shouldReloadCurrentPhoto && currentPhotoView != nil && currentPhoto != nil && browser_.handler.isShow) {
+    [currentPhotoView setupPhoto:currentPhoto];
+  }
 }
 
 void GKPhotoBrowserRuntime::hideOriginLoadingView() {
@@ -1106,12 +1210,19 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
   if (photo.placeholderImage == nil && sourceSnapshotImage != nil) {
     photo.placeholderImage = sourceSnapshotImage;
   }
+  BOOL shouldDeferInitialLoad = sourceImageView != nil && photo.placeholderImage != nil;
 
   NSString *localPath = GKRNStringFromOptional(image.localPath);
   if (localPath.length > 0) {
     UIImage *localImage = GKRNLoadImage(localPath);
     if (localImage != nil) {
-      photo.image = localImage;
+      if (shouldDeferInitialLoad) {
+        photo.image = photo.placeholderImage;
+        photo.gkrn_deferredImage = localImage;
+        [deferredLoadPhotos_ addObject:photo];
+      } else {
+        photo.image = localImage;
+      }
     }
   } else {
     NSString *uri = GKRNStringFromOptional(image.uri);
@@ -1121,13 +1232,25 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
         if (url.isFileURL) {
           UIImage *fileImage = [UIImage imageWithContentsOfFile:url.path];
           if (fileImage != nil) {
-            photo.image = fileImage;
+            if (shouldDeferInitialLoad) {
+              photo.image = photo.placeholderImage;
+              photo.gkrn_deferredImage = fileImage;
+              [deferredLoadPhotos_ addObject:photo];
+            } else {
+              photo.image = fileImage;
+            }
           }
         } else {
-          photo.url = url;
-          UIImage *cachedImage = GKRNImageFromSDCache(url);
-          if (cachedImage != nil) {
-            photo.image = cachedImage;
+          if (shouldDeferInitialLoad) {
+            photo.image = photo.placeholderImage;
+            photo.gkrn_deferredURL = url;
+            [deferredLoadPhotos_ addObject:photo];
+          } else {
+            photo.url = url;
+            UIImage *cachedImage = GKRNImageFromSDCache(url);
+            if (cachedImage != nil) {
+              photo.image = cachedImage;
+            }
           }
         }
       }
@@ -1135,7 +1258,7 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
   }
 
   if (sourceImageView != nil) {
-    sourceImageView.image = photo.image;
+    sourceImageView.image = photo.placeholderImage ?: photo.image;
   }
 
   NSString *originUri = GKRNStringFromOptional(image.originUri);
