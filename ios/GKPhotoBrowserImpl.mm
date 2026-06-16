@@ -49,7 +49,7 @@ typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
     self.userInteractionEnabled = NO;
     _panel = [UIView new];
     _panel.frame = CGRectMake(0, 0, 130, 130);
-    _panel.backgroundColor = [UIColor colorWithRed:31 / 255.0 green:32 / 255.0 blue:33 / 255.0 alpha:0.9];
+    _panel.backgroundColor = [UIColor colorWithRed:31 / 255.0 green:32 / 255.0 blue:33 / 255.0 alpha:1.0];
     _panel.layer.cornerRadius = 10;
     [self addSubview:_panel];
 
@@ -1088,7 +1088,6 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(deferredLoadDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     if (browser_ == weakBrowser) {
       restoreDeferredLoads();
-      handlePhotoSelected(index);
     }
   });
 }
@@ -1472,6 +1471,7 @@ void GKPhotoBrowserRuntime::handlePanEnded(BOOL willDisappear) {
 
 void GKPhotoBrowserRuntime::handlePhotoSelected(NSInteger index) {
   if (browser_ == nil) return;
+  restoreDeferredLoads();
   hideOriginLoadingView();
   BOOL usesTapToToggleChrome = browser_.configure.isSingleTapDisabled;
   [cover_ showActionButtonsAnimated:NO autoHide:usesTapToToggleChrome];
