@@ -1158,10 +1158,6 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
           }
         } else {
           photo.url = url;
-          UIImage *cachedImage = GKRNImageFromSDCache(url);
-          if (cachedImage != nil) {
-            photo.image = cachedImage;
-          }
         }
       }
     }
