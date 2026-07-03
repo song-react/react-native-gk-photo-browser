@@ -150,31 +150,7 @@ typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
 
 @interface GKPhotoBrowser (GKRNPrivate)
 @property(nonatomic, strong, readonly) GKPhotoBrowserHandler *handler;
-@end
-
-@interface GKPhoto (GKRNDeferredLoad)
-@property(nonatomic, strong, nullable) NSURL *gkrn_deferredURL;
-@property(nonatomic, strong, nullable) UIImage *gkrn_deferredImage;
-@end
-
-@implementation GKPhoto (GKRNDeferredLoad)
-
-- (NSURL *)gkrn_deferredURL {
-  return objc_getAssociatedObject(self, @selector(gkrn_deferredURL));
-}
-
-- (void)setGkrn_deferredURL:(NSURL *)url {
-  objc_setAssociatedObject(self, @selector(gkrn_deferredURL), url, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-- (UIImage *)gkrn_deferredImage {
-  return objc_getAssociatedObject(self, @selector(gkrn_deferredImage));
-}
-
-- (void)setGkrn_deferredImage:(UIImage *)image {
-  objc_setAssociatedObject(self, @selector(gkrn_deferredImage), image, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
+@property(nonatomic, strong, readonly) NSMutableSet<GKPhotoView *> *visiblePhotoViews;
 @end
 
 template <typename Fn>
@@ -827,6 +803,7 @@ class GKPhotoBrowserRuntime {
   void handleDidDisappear();
   void handlePanBegin();
   void handlePanEnded(BOOL willDisappear);
+  void handlePagingBegin();
   void handlePhotoSelected(NSInteger index);
   void handleSingleTap(NSInteger index);
   void handleDismissWillStart();
@@ -836,8 +813,6 @@ class GKPhotoBrowserRuntime {
   void showOnMain(const BrowserConfig &config, const std::optional<BrowserCallbacks> &callbacks);
   void dismissOnMain();
   void clearSourceImagePlaceholders();
-  void clearDeferredLoads();
-  void restoreDeferredLoads();
   void hideOriginLoadingView();
   GKPhoto *_Nullable makePhoto(const BrowserImage &image);
   void installImageHeaders(const std::vector<BrowserImage> &images);
@@ -858,7 +833,6 @@ class GKPhotoBrowserRuntime {
   __strong GKRNOriginLoadingView *originLoadingView_ = nil;
   __strong GKRNAVPlayerManager *playerManager_ = nil;
   __strong NSMutableArray<UIView *> *sourceImagePlaceholders_ = nil;
-  __strong NSMutableArray<GKPhoto *> *deferredLoadPhotos_ = nil;
   std::vector<BrowserImage> images_;
   std::function<void()> onDismissCallback_;
   std::function<void(double)> onDownloadCallback_;
@@ -908,6 +882,13 @@ static inline margelo::nitro::gkphotobrowser::GKPhotoBrowserRuntime *_Nullable G
   }
 }
 
+- (void)photoBrowser:(GKPhotoBrowser *)browser scrollViewWillBeginDragging:(UIScrollView *)scrollView {
+  auto *owner = GKRNRuntimeFromOwner(self.owner);
+  if (owner != nullptr) {
+    owner->handlePagingBegin();
+  }
+}
+
 - (void)photoBrowser:(GKPhotoBrowser *)browser singleTapWithIndex:(NSInteger)index {
   auto *owner = GKRNRuntimeFromOwner(self.owner);
   if (owner != nullptr) {
@@ -929,7 +910,6 @@ GKPhotoBrowserRuntime::GKPhotoBrowserRuntime() {
   delegateProxy_ = [GKPhotoBrowserDelegateProxy new];
   delegateProxy_.owner = this;
   sourceImagePlaceholders_ = [NSMutableArray new];
-  deferredLoadPhotos_ = [NSMutableArray new];
   language_ = GKRNResolveLanguage(std::nullopt);
 }
 
@@ -938,7 +918,6 @@ GKPhotoBrowserRuntime::~GKPhotoBrowserRuntime() {
     delegateProxy_.owner = nullptr;
     removeForwardObserver();
     clearSourceImagePlaceholders();
-    clearDeferredLoads();
     browser_ = nil;
     cover_ = nil;
     playerManager_ = nil;
@@ -985,7 +964,6 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
     browser_ = nil;
   }
   clearSourceImagePlaceholders();
-  clearDeferredLoads();
 
   NSMutableArray<GKPhoto *> *photos = [NSMutableArray arrayWithCapacity:config.images.size()];
   for (const BrowserImage &image : config.images) {
@@ -998,7 +976,6 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   UIViewController *viewController = GKRNCurrentTopViewController();
   if (photos.count == 0 || viewController == nil) {
     clearSourceImagePlaceholders();
-    clearDeferredLoads();
     if (onDismissCallback_) {
       onDismissCallback_();
     }
@@ -1083,13 +1060,6 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   installForwardObserver();
 
   [browser showFromVC:viewController];
-  __weak GKPhotoBrowser *weakBrowser = browser;
-  NSTimeInterval deferredLoadDelay = configure.animDuration + 0.05;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(deferredLoadDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    if (browser_ == weakBrowser) {
-      restoreDeferredLoads();
-    }
-  });
 }
 
 void GKPhotoBrowserRuntime::dismissOnMain() {
@@ -1098,7 +1068,6 @@ void GKPhotoBrowserRuntime::dismissOnMain() {
   [playerManager_ setControlsHiddenByDismiss:YES];
   [browser_ dismiss];
   clearSourceImagePlaceholders();
-  clearDeferredLoads();
   hideOriginLoadingView();
   browser_ = nil;
   cover_ = nil;
@@ -1112,44 +1081,6 @@ void GKPhotoBrowserRuntime::clearSourceImagePlaceholders() {
     [view removeFromSuperview];
   }
   [sourceImagePlaceholders_ removeAllObjects];
-}
-
-void GKPhotoBrowserRuntime::clearDeferredLoads() {
-  for (GKPhoto *photo in deferredLoadPhotos_) {
-    photo.gkrn_deferredURL = nil;
-    photo.gkrn_deferredImage = nil;
-  }
-  [deferredLoadPhotos_ removeAllObjects];
-}
-
-void GKPhotoBrowserRuntime::restoreDeferredLoads() {
-  if (browser_ == nil || deferredLoadPhotos_.count == 0) return;
-
-  GKPhotoView *currentPhotoView = browser_.curPhotoView;
-  GKPhoto *currentPhoto = currentPhotoView.photo;
-  BOOL shouldReloadCurrentPhoto = NO;
-
-  for (GKPhoto *photo in deferredLoadPhotos_) {
-    NSURL *url = photo.gkrn_deferredURL;
-    UIImage *image = photo.gkrn_deferredImage;
-    if (url == nil && image == nil) continue;
-
-    photo.url = url;
-    photo.image = image;
-    photo.finished = NO;
-    photo.failed = NO;
-    photo.gkrn_deferredURL = nil;
-    photo.gkrn_deferredImage = nil;
-
-    if (photo == currentPhoto) {
-      shouldReloadCurrentPhoto = YES;
-    }
-  }
-  [deferredLoadPhotos_ removeAllObjects];
-
-  if (shouldReloadCurrentPhoto && currentPhotoView != nil && currentPhoto != nil && browser_.handler.isShow) {
-    [currentPhotoView setupPhoto:currentPhoto];
-  }
 }
 
 void GKPhotoBrowserRuntime::hideOriginLoadingView() {
@@ -1209,19 +1140,11 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
   if (photo.placeholderImage == nil && sourceSnapshotImage != nil) {
     photo.placeholderImage = sourceSnapshotImage;
   }
-  BOOL shouldDeferInitialLoad = sourceImageView != nil && photo.placeholderImage != nil;
-
   NSString *localPath = GKRNStringFromOptional(image.localPath);
   if (localPath.length > 0) {
     UIImage *localImage = GKRNLoadImage(localPath);
     if (localImage != nil) {
-      if (shouldDeferInitialLoad) {
-        photo.image = photo.placeholderImage;
-        photo.gkrn_deferredImage = localImage;
-        [deferredLoadPhotos_ addObject:photo];
-      } else {
-        photo.image = localImage;
-      }
+      photo.image = localImage;
     }
   } else {
     NSString *uri = GKRNStringFromOptional(image.uri);
@@ -1231,25 +1154,13 @@ GKPhoto *_Nullable GKPhotoBrowserRuntime::makePhoto(const BrowserImage &image) {
         if (url.isFileURL) {
           UIImage *fileImage = [UIImage imageWithContentsOfFile:url.path];
           if (fileImage != nil) {
-            if (shouldDeferInitialLoad) {
-              photo.image = photo.placeholderImage;
-              photo.gkrn_deferredImage = fileImage;
-              [deferredLoadPhotos_ addObject:photo];
-            } else {
-              photo.image = fileImage;
-            }
+            photo.image = fileImage;
           }
         } else {
-          if (shouldDeferInitialLoad) {
-            photo.image = photo.placeholderImage;
-            photo.gkrn_deferredURL = url;
-            [deferredLoadPhotos_ addObject:photo];
-          } else {
-            photo.url = url;
-            UIImage *cachedImage = GKRNImageFromSDCache(url);
-            if (cachedImage != nil) {
-              photo.image = cachedImage;
-            }
+          photo.url = url;
+          UIImage *cachedImage = GKRNImageFromSDCache(url);
+          if (cachedImage != nil) {
+            photo.image = cachedImage;
           }
         }
       }
@@ -1469,9 +1380,19 @@ void GKPhotoBrowserRuntime::handlePanEnded(BOOL willDisappear) {
   [playerManager_ setControlsHiddenByPan:NO];
 }
 
+void GKPhotoBrowserRuntime::handlePagingBegin() {
+  if (browser_ == nil) return;
+  hideOriginLoadingView();
+  for (GKPhotoView *photoView in browser_.visiblePhotoViews) {
+    GKPhoto *photo = photoView.photo;
+    if (photo == nil || photo.isVideo) continue;
+    photo.originFinished = NO;
+    [photoView setupPhoto:photo];
+  }
+}
+
 void GKPhotoBrowserRuntime::handlePhotoSelected(NSInteger index) {
   if (browser_ == nil) return;
-  restoreDeferredLoads();
   hideOriginLoadingView();
   BOOL usesTapToToggleChrome = browser_.configure.isSingleTapDisabled;
   [cover_ showActionButtonsAnimated:NO autoHide:usesTapToToggleChrome];
@@ -1480,6 +1401,12 @@ void GKPhotoBrowserRuntime::handlePhotoSelected(NSInteger index) {
   }
   if (!shouldAutoLoadOriginAtIndex(index)) return;
   if (browser_.curPhoto.originFinished) return;
+  if (GKRNImageFromSDCache(browser_.curPhoto.originUrl) == nil) {
+    originLoadingView_ = [[GKRNOriginLoadingView alloc] initWithFrame:browser_.view.bounds];
+    originLoadingView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [browser_.view addSubview:originLoadingView_];
+    [originLoadingView_ setProgress:0];
+  }
   [browser_ loadCurrentPhotoImage];
 }
 
