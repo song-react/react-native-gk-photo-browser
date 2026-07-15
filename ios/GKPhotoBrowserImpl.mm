@@ -18,6 +18,37 @@ using namespace margelo::nitro::gkphotobrowser;
 static NSString *const GKRNPhotoBrowserForwardNotification = @"gkPhotoBrowserForward";
 static const NSTimeInterval GKRNActionControlsAutoHideDelay = 3.0;
 
+@interface GKRNPhotoBrowser : GKPhotoBrowser
+@end
+
+@implementation GKRNPhotoBrowser
+- (void)dismissViewControllerAnimated:(BOOL)flag completion:(void (^)(void))completion {
+  [super dismissViewControllerAnimated:YES completion:completion];
+}
+@end
+
+@interface GKRNPhotoBrowserHandler : GKPhotoBrowserHandler
+@end
+
+@implementation GKRNPhotoBrowserHandler
+- (void)showFromVC:(UIViewController *)viewController {
+  if (self.configure.isPush) {
+    [super showFromVC:viewController];
+    return;
+  }
+
+  self.configure.fromVC = viewController;
+  UIViewController *presentedViewController = self.browser;
+  if (self.configure.isNeedNavigationController) {
+    presentedViewController = [[UINavigationController alloc] initWithRootViewController:self.browser];
+  }
+  presentedViewController.modalPresentationCapturesStatusBarAppearance = YES;
+  presentedViewController.modalPresentationStyle = UIModalPresentationOverFullScreen;
+  presentedViewController.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+  [viewController presentViewController:presentedViewController animated:YES completion:nil];
+}
+@end
+
 typedef NS_ENUM(NSUInteger, GKRNLanguage) {
   GKRNLanguageZhHans,
   GKRNLanguageZhHant,
@@ -149,7 +180,7 @@ typedef NS_ENUM(NSUInteger, GKRNLocalizedTextKey) {
 @end
 
 @interface GKPhotoBrowser (GKRNPrivate)
-@property(nonatomic, strong, readonly) GKPhotoBrowserHandler *handler;
+@property(nonatomic, strong) GKPhotoBrowserHandler *handler;
 @property(nonatomic, strong, readonly) NSMutableSet<GKPhotoView *> *visiblePhotoViews;
 @end
 
@@ -986,7 +1017,8 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   if (index < 0) index = 0;
   if (index >= photos.count) index = photos.count - 1;
 
-  GKPhotoBrowser *browser = [[GKPhotoBrowser alloc] initWithPhotos:photos currentIndex:index];
+  GKPhotoBrowser *browser = [[GKRNPhotoBrowser alloc] initWithPhotos:photos currentIndex:index];
+  browser.handler = [GKRNPhotoBrowserHandler new];
   GKPhotoBrowserConfigure *configure = browser.configure;
   browser.delegate = delegateProxy_;
 
