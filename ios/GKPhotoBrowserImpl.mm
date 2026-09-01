@@ -19,11 +19,12 @@ static NSString *const GKRNPhotoBrowserForwardNotification = @"gkPhotoBrowserFor
 static const NSTimeInterval GKRNActionControlsAutoHideDelay = 3.0;
 
 @interface GKRNPhotoBrowser : GKPhotoBrowser
+@property(nonatomic, assign) BOOL isModalDismissAnimated;
 @end
 
 @implementation GKRNPhotoBrowser
 - (void)dismissViewControllerAnimated:(BOOL)flag completion:(void (^)(void))completion {
-  [super dismissViewControllerAnimated:YES completion:completion];
+  [super dismissViewControllerAnimated:(flag || self.isModalDismissAnimated) completion:completion];
 }
 @end
 
@@ -1017,7 +1018,8 @@ void GKPhotoBrowserRuntime::showOnMain(const BrowserConfig &config,
   if (index < 0) index = 0;
   if (index >= photos.count) index = photos.count - 1;
 
-  GKPhotoBrowser *browser = [[GKRNPhotoBrowser alloc] initWithPhotos:photos currentIndex:index];
+  GKRNPhotoBrowser *browser = [[GKRNPhotoBrowser alloc] initWithPhotos:photos currentIndex:index];
+  browser.isModalDismissAnimated = config.isModalDismissAnimated.value_or(false);
   browser.handler = [GKRNPhotoBrowserHandler new];
   GKPhotoBrowserConfigure *configure = browser.configure;
   browser.delegate = delegateProxy_;

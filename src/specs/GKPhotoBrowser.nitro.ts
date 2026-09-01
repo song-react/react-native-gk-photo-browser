@@ -48,6 +48,7 @@ export interface BrowserConfig {
   hidesSavedBtn?: boolean
   isAdaptiveSafeArea?: boolean
   isFollowSystemRotation?: boolean
+  isModalDismissAnimated?: boolean
   isStatusBarShow?: boolean
   isShowStatusBarWhenPan?: boolean
   isScreenRotateDisabled?: boolean
